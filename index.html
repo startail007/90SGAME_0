@@ -59,14 +59,14 @@
 
             var render=Render.create({
                     engine:engine,
-                    element:document.body,
+                    //element:document.body,
                     options: {
                         width: sw,
                         height: sh
                     }
                });
             Engine.run(engine);
-            //Render.run(render);
+            Render.run(render);
 
 
 
@@ -254,12 +254,13 @@
                 }    
                 var character01 = new componentCharacter(playerTextures);
                 container_layer.addChild(character01);
+                var s = 0.6;
                 character01.createBody({
-                    head: 40*0.8,
-                    bodyWidth: 60*0.8,
-                    bodyHeight: 95*0.8,
-                    footRadius: 15*0.8,
-                    footDistance: 20*0.8
+                    head: 40*s,
+                    bodyWidth: 60*s,
+                    bodyHeight: 95*s,
+                    footRadius: 15*s,
+                    footDistance: 20*s
                 });
                 character01.addBodyfrom(world).translate(app.screen.width*0.5,600-100-400).update();
                 character01.setControl(control);
