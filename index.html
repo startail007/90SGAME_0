@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Untitled Document</title>
+    <meta charset="UTF-8">
+    <meta name="description" content="">
+    <meta name="keywords" content="">
+    <script src="js/supplement.js"></script>
+    <script src="js/pixi.min.js"></script>
+    <script src="js/pixi-expansion.js"></script>
+    <script src="js/matter.min.js"></script>
+    <link href="css/style.css" rel="stylesheet">
+    <script>
+        var Engine=Matter.Engine,
+            Render=Matter.Render,
+            World=Matter.World,
+            Bodies=Matter.Bodies,
+            Events = Matter.Events,
+            Body = Matter.Body;
+            Composite = Matter.Composite,
+            Bounds = Matter.Bounds,
+            Common = Matter.Common; 
+
+        window.onload = function(){
+
+            var sw = Common.clamp(window.innerWidth,800,800);
+            var sh = Common.clamp(window.innerHeight,600,600);
+            var app = new PIXI.Application({
+                width: sw,
+                height: sh,
+                backgroundColor: 0x000000,
+                resolution: window.devicePixelRatio || 1,
+            });
+            document.body.appendChild(app.view);
+
+            var game_stage = new PIXI.Container();
+            app.stage.addChild(game_stage);
+            var game_bgView = new PIXI.Container();
+            game_stage.addChild(game_bgView);
+            var game_view = new PIXI.Container();
+            game_stage.addChild(game_view);
+
+            app.loader.add('player', 'img/player.json');
+            app.loader.add('bg01', 'img/bg01.png');
+            app.loader.add('bg02', 'img/bg02.png');
+            app.loader.add('floor02', 'img/floor02.png');
+            app.loader.add('floor01', 'img/floor01.png');
+            app.loader.on("progress", function(loader){
+                //console.log(loader.progress,"loading"); 
+            });            
+            app.loader.load(function(loader, resources){
+                //texture = resources.flowerTop.texture;
+                init(loader, resources);
+            });
+
+            var engine=Engine.create(),
+                world=engine.world;
+
+            var render=Render.create({
+                    engine:engine,
+                    /*element:document.body,*/
+                    options: {
+                        width: sw,
+                        height: sh
+                    }
+               });
+            Engine.run(engine);
+            Render.run(render);
+
+
+
+            function init(loader, resources){
+                //console.log(resources.aaa.textures)
+                /*控制*/
+                var control = {
+                    left:keyboard(37),
+                    right:keyboard(39),
+                    spacebar:keyboard(32),
+                    cameraUp:keyboard(87),
+                    cameraDown:keyboard(83),
+                }
+                /*鏡頭*/
+                var camera = {
+                    x:0,
+                    y:0
+                }
+                var cameraT = {
+                    x:0,
+                    y:600
+                }
+                /*圖層*/
+                var bg_layer = new PIXI.Container();
+                game_bgView.addChild(bg_layer);
+
+                var floor_layer = new PIXI.Container();
+                game_view.addChild(floor_layer);
+
+                var container_layer = new PIXI.Container();
+                game_view.addChild(container_layer);
+
+                /*背景*/
+                /*var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width, app.screen.height);                
+                floor_layer.addChild(bg01);*/
+
+                /*var bg02 = new PIXI.TilingSprite(resources.bg02.texture, app.screen.width*10, 1200);                
+                floor_layer.addChild(bg02);
+                var s = 1200/600;
+                bg02.tileScale.x = bg02.tileScale.y = s;
+
+                var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width*10, 1200);                
+                floor_layer.addChild(bg01);
+                var s = 1200/600;
+                bg01.tileScale.x = bg01.tileScale.y = s;*/
+
+                function createBox(texture, x, y, width, height,s,bound){
+                    //texture.wrapMode = PIXI.WRAP_MODES.REPEAT;
+                    //var floor0001 = new PIXI.Sprite(texture);
+                    var floor0001 = new PIXI.TilingSprite(
+                        texture,
+                        width,
+                        height,
+                    );
+                    floor0001.tileScale.x = s;
+                    floor0001.tileScale.y = s;
+                    /*floor0001.tilePosition.x += 1;
+                    floor0001.tilePosition.y += 1;*/
+                    floor0001.position.x = width*0.5;                    
+                    floor0001.position.y = height*0.5;
+                    floor0001.anchor.set(0.5);
+                    floor0001.createBody({
+                        isStatic:true,
+                        friction: 1,
+                        frictionStatic:1,
+                        restitution:0
+                    },bound);
+                    floor0001.translate(x + floor0001.pivot.x,y + floor0001.pivot.y);
+                    return floor0001;
+                }
+                /*var a = [0,1,2,3,0,1,2,3];
+                var b = [0,1,0,0,0,0,0,0];*/
+                /*for(var i=0;i<180;i++){
+                    var floor_1 = createBox(resources.floor01.texture,i*50,600-70-i*1,50,50,0.5);
+                    floor_layer.addChild(floor_1);
+                    floor_1.addBodyfrom(world).update();  
+                    //floor_1.body.angle = 5;                  
+                    Body.setAngle(floor_1.body,-0.01*2*Math.PI);
+                }*/
+                /*for(var i=0;i<10;i++){
+                    var floor_1 = createBox(resources.floor01.texture,600,100+i*200,150,50,0.5);
+                    floor_layer.addChild(floor_1);
+                    floor_1.addBodyfrom(world).update();                    
+                }*/
+
+                var floor_5 = createBox(resources.floor02.texture,0,600-100,9000,100,100/66,{left:0,right:0,top:30,bottom:0});
+                floor_layer.addChild(floor_5);
+                floor_5.addBodyfrom(world).update();
+
+                var floor_6 = createBox(resources.floor01.texture,40,320,150,50,0.5);
+                floor_layer.addChild(floor_6);
+                floor_6.addBodyfrom(world).update();
+
+
+                var playerTextures = [];
+                for (var temp in resources.player.textures) {
+                    playerTextures.push(resources.player.textures[temp]);
+                }    
+                var character01 = new componentCharacter(playerTextures);
+                container_layer.addChild(character01);
+                character01.createBody({
+                    head: 40*0.8,
+                    bodyWidth: 60*0.8,
+                    bodyHeight: 95*0.8,
+                    footRadius: 15*0.8,
+                    footDistance: 20*0.8
+                });
+                character01.addBodyfrom(world).translate(app.screen.width*0.5,600-100-400).update();
+                character01.setControl(control);
+                updateView();
+
+                
+                Events.on(engine, 'collisionEnd', function(event) {
+                    var pairs = event.pairs;
+                    for(var key in pairs){
+                        var pair = pairs[key];                        
+                        character01.onCollisionEnd(pair);                        
+                    }
+                });
+                Events.on(engine, 'collisionStart', function(event) {
+                    var pairs = event.pairs;
+                    for(var key in pairs){
+                        var pair = pairs[key];
+                        character01.onCollisionStart(pair);                        
+                    }
+                });    
+
+                var timestamp = engine.timing.timestamp;
+                var a0 = 0;
+                var a1 = 0;
+                Events.on(engine, 'beforeUpdate', function(event) {
+                    delta = event.timestamp - timestamp;
+                    timestamp = event.timestamp;
+                    a0+=delta/4000;
+                    a0%=1;
+                    a1+=delta/(90*1000);
+                    a1%=1;
+
+                    var easeInOutQuart =  function (x) {
+                        return x < 0.5 ?
+                            2 * x * x :
+                            1 - Math.pow( -2 * x + 2, 2 ) / 2;
+                    }
+                    var temp = easeInOutQuart(1-Math.abs(a0-0.5)*2);
+
+                    var x = 0 + (300-0)*temp;
+                    var vx = x - floor_6.body.position.x;
+                    floor_6.move(vx,0);
+
+                    //cameraT.y=(1-a1)*(600-100);
+                    /*var yy = 600-100;
+
+                    var y = yy + (300-yy)*a1;
+                    var vy = y - floor_5.body.position.y;
+                    floor_5.move(0,vy);*/
+
+                    character01.beforeUpdate();
+                    updateView(); 
+                });
+
+                Events.on(engine, 'afterUpdate', function(event) {
+                });
+
+                function updateView(){
+                    if(control.cameraUp.isDown){
+                        cameraT.y-=40;
+                    }
+                    if(control.cameraDown.isDown){                        
+                        cameraT.y+=40;
+                    }
+                    camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,9000 - app.screen.width*0.5);
+                    camera.y = Common.clamp(character01.body.position.y,app.screen.height*0.5,600-app.screen.height*0.5);
+                    //camera.y = Common.clamp(/*character01.body.position.y + */cameraT.y,app.screen.height*0.5,600-app.screen.height*0.5);
+                    var xx = -camera.x + app.screen.width*0.5;
+                    var yy = -camera.y + app.screen.height*0.5;
+                    game_view.position.x = xx;
+                    game_view.position.y = yy;
+                    Render.lookAt(render, {
+                        min:{
+                            x:-xx,
+                            y:-yy
+                        },
+                        max:{
+                            x:-xx+app.screen.width,
+                            y:-yy+app.screen.height
+                        }
+                    });
+                }    
+                //console.log(app.stage,app)
+                app.ticker.add(function(delta){    
+                    /*bg01.tilePosition.x = (camera.x - app.screen.width*0.5)*0.2;
+                    bg02.tilePosition.x = (camera.x - app.screen.width*0.5)*0.4;*/
+                    PIXI.bodyList.forEach(function(el){
+                        el.update();
+                    });
+                });
+                app.start();
+
+                
+
+            }
+            
+        }
+        
+    </script>
+    <style>
+        canvas{
+            position: absolute;
+            background: 0% 0% / contain rgb(15, 15, 19);
+            left: 0px;
+        }
+        canvas:nth-child(2){            
+            opacity: 0.25;
+        }
+    </style>
+</head>
+
+<body>
+</body>
+
+</html>
