@@ -59,7 +59,7 @@
 
             var render=Render.create({
                     engine:engine,
-                    /*element:document.body,*/
+                    element:document.body,
                     options: {
                         width: sw,
                         height: sh
@@ -113,50 +113,137 @@
                 var s = 1200/600;
                 bg01.tileScale.x = bg01.tileScale.y = s;*/
 
-                function createBox(texture, x, y, width, height,s,bound){
+                function createBox(texture, option){
+                    option = Object.assign({
+                        x: 0,
+                        y: 0,
+                        width: 50,
+                        height: 50,
+                        bound: undefined,
+                        textureScale:0.5,
+                        angle:0
+                    },option);
                     //texture.wrapMode = PIXI.WRAP_MODES.REPEAT;
                     //var floor0001 = new PIXI.Sprite(texture);
                     var floor0001 = new PIXI.TilingSprite(
                         texture,
-                        width,
-                        height,
+                        option.width,
+                        option.height,
                     );
-                    floor0001.tileScale.x = s;
-                    floor0001.tileScale.y = s;
+                    floor0001.tileScale.x = option.textureScale;
+                    floor0001.tileScale.y = option.textureScale;
                     /*floor0001.tilePosition.x += 1;
                     floor0001.tilePosition.y += 1;*/
-                    floor0001.position.x = width*0.5;                    
-                    floor0001.position.y = height*0.5;
+                    floor0001.position.x = option.width*0.5;                    
+                    floor0001.position.y = option.height*0.5;
                     floor0001.anchor.set(0.5);
                     floor0001.createBody({
                         isStatic:true,
                         friction: 1,
                         frictionStatic:1,
                         restitution:0
-                    },bound);
-                    floor0001.translate(x + floor0001.pivot.x,y + floor0001.pivot.y);
+                    },option.bound);
+                    var tx = (option.bound?option.bound.left:0);
+                    var ty = (option.bound?option.bound.top:0);
+                    floor0001.translate(option.x - tx + floor0001.pivot.x,option.y - ty + floor0001.pivot.y);
+                    floor0001.rotate(option.angle, {x:option.x,y:option.y});
                     return floor0001;
                 }
-                /*var a = [0,1,2,3,0,1,2,3];
-                var b = [0,1,0,0,0,0,0,0];*/
-                /*for(var i=0;i<180;i++){
-                    var floor_1 = createBox(resources.floor01.texture,i*50,600-70-i*1,50,50,0.5);
-                    floor_layer.addChild(floor_1);
-                    floor_1.addBodyfrom(world).update();  
-                    //floor_1.body.angle = 5;                  
-                    Body.setAngle(floor_1.body,-0.01*2*Math.PI);
-                }*/
-                /*for(var i=0;i<10;i++){
-                    var floor_1 = createBox(resources.floor01.texture,600,100+i*200,150,50,0.5);
-                    floor_layer.addChild(floor_1);
-                    floor_1.addBodyfrom(world).update();                    
-                }*/
 
-                var floor_5 = createBox(resources.floor02.texture,0,600-100,9000,100,100/66,{left:0,right:0,top:30,bottom:0});
+                function createLenBox(texture, data, option){
+                    option = Object.assign({
+                        x:0,
+                        y:0,
+                        height: 50,
+                        bound: undefined,
+                        textureScale:0.5
+                    },option);
+                    var pp = data;
+                    var floors = [];
+                    for(var i=0;i<pp.length-1;i++){
+                        var pp0 = pp[i];
+                        var pp1 = pp[i+1];
+                        var xx = pp1.x - pp0.x;
+                        var yy = pp1.y - pp0.y;
+                        var length = Math.sqrt(xx*xx+yy*yy);
+                        var angle = Math.atan2(yy, xx);
+                        var obj = Object.assign({},option);
+                        obj = Object.assign(obj,{
+                            x:option.x + pp0.x,
+                            y:option.y + pp0.y,
+                            width:length,
+                            angle:angle
+                        });
+                        //console.log(pp0.x,option.y)
+                        var floor_1 = createBox(texture,obj);
+                        floors.push(floor_1);
+                    }
+                    return floors;
+                }
+                var floors = createLenBox(resources.floor02.texture,[
+                    {x:0,y:0},
+                    {x:100,y:-50},
+                    {x:400,y:-50},
+                    {x:600,y:50}
+                ],{
+                    x:0,
+                    y:530,
+                    height:100,
+                    textureScale:100/66,
+                    bound:{left:0,right:0,top:30,bottom:0}
+                }).forEach(function(el){
+                    floor_layer.addChild(el);
+                    el.addBodyfrom(world).update();
+                });
+
+                var floors = createLenBox(resources.floor02.texture,[
+                    {x:0,y:0},
+                    {x:600,y:-100},
+                    {x:1000,y:-100}
+                ],{
+                    x:600,
+                    y:430,
+                    height:100,
+                    textureScale:100/66,
+                    bound:{left:0,right:0,top:30,bottom:0}
+                }).forEach(function(el){
+                    floor_layer.addChild(el);
+                    el.addBodyfrom(world).update();
+                });
+
+                var floors = createLenBox(resources.floor02.texture,[
+                    {x:0,y:0},
+                    {x:200,y:50},
+                    {x:1000,y:50}
+                ],{
+                    x:1800,
+                    y:300,
+                    height:100,
+                    textureScale:100/66,
+                    bound:{left:0,right:0,top:30,bottom:0}
+                }).forEach(function(el){
+                    floor_layer.addChild(el);
+                    el.addBodyfrom(world).update();
+                });
+
+                var floor_5 = createBox(resources.floor02.texture,{
+                    x:0,
+                    y:600-100+30,
+                    width:9000,
+                    height:100,
+                    textureScale:100/66,
+                    bound:{left:0,right:0,top:30,bottom:0}
+                });
                 floor_layer.addChild(floor_5);
                 floor_5.addBodyfrom(world).update();
 
-                var floor_6 = createBox(resources.floor01.texture,40,320,150,50,0.5);
+                var floor_6 = createBox(resources.floor01.texture,{
+                    x:40,
+                    y:320,
+                    width:150,
+                    height:50,
+                    textureScale:0.5
+                });
                 floor_layer.addChild(floor_6);
                 floor_6.addBodyfrom(world).update();
 
@@ -223,7 +310,7 @@
                     var vy = y - floor_5.body.position.y;
                     floor_5.move(0,vy);*/
 
-                    character01.beforeUpdate();
+                    character01.beforeUpdate(delta);
                     updateView(); 
                 });
 
