@@ -154,7 +154,7 @@ var componentCharacter = function(data) {
     this.__super(); 
 
     var player = new PIXI.AnimatedSprite(data);
-    player.scale.set(0.8);
+    player.scale.set(0.6);
     player.frameTags['idle'] = {start:0,end:23,loop:true,speed:0.4};
     player.frameTags['run'] = {start:24,end:47,loop:true,speed:1.4};
     player.frameTags['jumpBefore'] = {start:48,end:61,loop:false,speed:1.2};
@@ -327,14 +327,8 @@ var componentCharacter = function(data) {
         if(pair.isSensor){
             if(pair.bodyA.id===this.sensorLeft.id||pair.bodyB.id===this.sensorLeft.id){
                 this.sensorLeftBool = true;
-                /*var v = this.body.velocity;
-                v.x *= 0.5;
-                Body.setVelocity( this.body, v);*/ 
             }else if(pair.bodyA.id===this.sensorRight.id||pair.bodyB.id===this.sensorRight.id){
                 this.sensorRightBool = true;
-                /*var v = this.body.velocity;
-                v.x *= 0.5;
-                Body.setVelocity( this.body, v);*/
             }else if(pair.bodyA.id===this.sensorFloor.id||pair.bodyB.id===this.sensorFloor.id){
                 this.sensorFloorCount++;
                 this.updateFloor();
@@ -362,11 +356,7 @@ var componentCharacter = function(data) {
         }
     }
     this.updateFloor = function(){
-        if(this.sensorFloorCount>0){
-            this.sensorFloorBool = true;
-        }else{
-            this.sensorFloorBool = false;
-        }
+        this.sensorFloorBool = this.sensorFloorCount>0;
     }
     this.setControl =  function(control){
         this.control = control;
