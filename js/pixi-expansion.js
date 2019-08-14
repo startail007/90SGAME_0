@@ -1,16 +1,38 @@
 PIXI.bodyList = [];
 PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {            
     body:null,
-    createBody:function(option,bound){
+    /*createBody:function(type, option, bound){
         option = option||{};
-        bound = bound||{};
-        bound.left = bound.left||0;
-        bound.right = bound.right||0;
-        bound.top = bound.top||0;
-        bound.bottom = bound.bottom||0;
-        this.body=Bodies.rectangle(this.width*0.5,this.height*0.5,this.width-bound.left-bound.right,this.height-bound.top-bound.bottom,option,false); 
-
-        this.pivot.set((bound.left- bound.right)*0.5, (bound.top - bound.bottom)*0.5);                 
+        if(type==="rect"){
+            bound = bound||{};
+            bound.left = bound.left||0;
+            bound.right = bound.right||0;
+            bound.top = bound.top||0;
+            bound.bottom = bound.bottom||0;
+            this.body=Bodies.rectangle(this.width*0.5,this.height*0.5,this.width-bound.left-bound.right,this.height-bound.top-bound.bottom,option,false); 
+            this.pivot.set((bound.left- bound.right)*0.5, (bound.top - bound.bottom)*0.5);     
+        }else if(type==="circle"){
+            this.body=Bodies.circle(0,0,this.width*0.5,option);
+        }
+                    
+        return this;
+    },*/
+    createBody:function(type, option, bound){
+        option = option||{};
+        if(type==="rect"){
+            bound = bound||{};
+            bound.left = bound.left||0;
+            bound.right = bound.right||0;
+            bound.top = bound.top||0;
+            bound.bottom = bound.bottom||0;
+            this.body=Bodies.rectangle(0,0,this.width-bound.left-bound.right,this.height-bound.top-bound.bottom,option,false); 
+            this.pivot.set((bound.left- bound.right)*0.5, (bound.top - bound.bottom)*0.5);     
+        }else if(type==="circle"){
+            this.body=Bodies.circle(0,0,this.width*0.5,option);
+            //this.pivot.set(this.width*0.5, this.height*0.5);
+            /*this.pivot.set((bound.left- bound.right)*0.5, (bound.top - bound.bottom)*0.5);*/
+        }
+                    
         return this;
     },
     addBodyfrom:function(target){
@@ -154,7 +176,7 @@ var componentCharacter = function(data) {
     this.__super(); 
 
     var player = new PIXI.AnimatedSprite(data);
-    player.scale.set(0.6);
+    player.scale.set(1);
     player.frameTags['idle'] = {start:0,end:23,loop:true,speed:0.4};
     player.frameTags['run'] = {start:24,end:47,loop:true,speed:1.4};
     player.frameTags['jumpBefore'] = {start:48,end:61,loop:false,speed:1.2};
@@ -168,8 +190,8 @@ var componentCharacter = function(data) {
     this.sensorLeftBool = false;
     this.sensorRightBool = false;
     this.sensorFloorBool = false;
-    this.sensorFloorCount = 0;
     this.direction = 'right';
+    //this.parts = [];
 
     var that = this;
     var stateMachine01 = new stateMachine();
@@ -215,9 +237,9 @@ var componentCharacter = function(data) {
                 this.setState('idle'); 
             }
             if(that.control.left.isDown){
-                that.controlMove(!that.sensorLeftBool);
+                that.controlMove(!that.sensorLeftBool?1:0.03);
             }else if(that.control.right.isDown){
-                that.controlMove(!that.sensorRightBool);
+                that.controlMove(!that.sensorRightBool?1:0.03);
             }
         },
         input:function(){                
@@ -228,11 +250,7 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('jumpBefore',{
         trigger:function(state){
-            if(that.control.left.isDown){
-                that.controlMove(!that.sensorLeftBool);
-            }else if(that.control.right.isDown){
-                that.controlMove(!that.sensorRightBool);
-            }
+            that.controlMove(0.7);
             if(that.player.currentFrame>=player.frameTags[state.id].end){                
                 this.setState('jump');
             }
@@ -249,7 +267,7 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('jump',{
         trigger:function(state){
-            that.controlMove(false);
+            that.controlMove(0.1);
             if(that.body.velocity.y>0){
                 this.setState('fall');
             }
@@ -273,7 +291,7 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('fall',{
         trigger:function(){
-            that.controlMove(false);
+            that.controlMove(0.03);
             if(that.sensorFloorBool){
                 this.setState('base');
             }
@@ -299,20 +317,88 @@ var componentCharacter = function(data) {
         var bodiesBodyBottom = -dimension.bodyWidth*0.5;
         var bodiesBodyTop = -dimension.bodyHeight+dimension.bodyWidth*0.5+dimension.head*0.5;
         var bodiesBodyY = (bodiesBodyTop + bodiesBodyBottom)*0.5;
+
         var bodiesHead = Bodies.rectangle(0,-dimension.bodyHeight+dimension.head*0.5,dimension.head,dimension.head);
         var bodiesLeftFoot = Bodies.circle(0+dimension.footDistance*0.5,-dimension.footRadius,dimension.footRadius);
         var bodiesRightFoot = Bodies.circle(0-dimension.footDistance*0.5,-dimension.footRadius,dimension.footRadius);
-        this.bodiesBody = Bodies.circle(0,bodiesBodyY,dimension.bodyWidth*0.5);
+        var bodiesBody = Bodies.circle(0,bodiesBodyY,dimension.bodyWidth*0.5);
         var tt = -dimension.bodyHeight;
         var bb = -dimension.footRadius;
-        this.sensorLeft = Bodies.rectangle(0-dimension.bodyWidth*0.5+dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
-        this.sensorRight = Bodies.rectangle(0+dimension.bodyWidth*0.5-dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
-        this.sensorFloor = Bodies.rectangle(0,-dimension.footRadius+dimension.footRadius*1,dimension.footDistance+dimension.footRadius*2,dimension.footRadius,{isSensor:true,density:0});
+        
+        var sensorLeft = Bodies.rectangle(0-dimension.bodyWidth*0.5+dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
+        var sensorRight = Bodies.rectangle(0+dimension.bodyWidth*0.5-dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
+        var sensorFloor = Bodies.rectangle(0,-dimension.footRadius+dimension.footRadius*1,dimension.footDistance+dimension.footRadius*2*0.8,dimension.footRadius,{isSensor:true,density:0});
+
+        var sensorCollision = Bodies.circle(0,-dimension.bodyHeight*0.5,dimension.bodyWidth*0.5,{isSensor:true,density:0});
+
+        var that = this;
+
+        Engine.collision.addCollisionStart(sensorCollision,function(body){
+                if(body.data){
+                    if(body.data.collision){
+                        body.data.collision();
+                    }
+                }
+            });
+        function collisionToBool(sensor, judge, fun){
+            var sensorCount = 0;
+            var updateCollision = function(body){
+                console.log(sensorFloor===sensor,sensorCount)
+                fun(body,sensorCount>0);
+            }
+            Engine.collision.addCollisionStart(sensor,function(body){
+                    if(judge(body)){
+                        sensorCount++;
+                        updateCollision(body);
+                    }
+                });
+            Engine.collision.addCollisionEnd(sensor,function(body){
+                    if(judge(body)){                        
+                        sensorCount--;
+                        updateCollision(body);
+                    }
+                });
+        }
+        collisionToBool(sensorLeft,function(body){
+            if(body.isSensor){
+                return;
+            }
+            return true;
+        },function(body,bool){            
+            that.sensorLeftBool = bool;
+        });
+        collisionToBool(sensorRight,function(body){
+            if(body.isSensor){
+                return;
+            }
+            return true;
+        },function(body,bool){
+            that.sensorRightBool = bool;
+        });
+        collisionToBool(sensorFloor,function(body){
+            if(body.isSensor){
+                return;
+            }
+            return true;
+        },function(body,bool){
+            that.sensorFloorBool = bool;
+        });
+        Engine.collision.addCollisionEnd(bodiesBody,function(body){
+                if(body.isSensor){
+                    return
+                }
+                if(that.sensorLeftBool){
+                    Body.translate( that.body, {x:1,y:0});
+                }
+                if(that.sensorRightBool){
+                    Body.translate( that.body, {x:-1,y:0});
+                }
+            });
 
         option = Object.assign({
             friction: 0.5,   
             inertia: Infinity,
-            parts:[bodiesHead,bodiesLeftFoot,bodiesRightFoot,this.bodiesBody,this.sensorRight,this.sensorLeft,this.sensorFloor]
+            parts:[bodiesHead,bodiesLeftFoot,bodiesRightFoot,bodiesBody,sensorLeft,sensorRight,sensorFloor,sensorCollision]
         },option);
 
         var bodiesMain=Body.create(option);
@@ -323,49 +409,14 @@ var componentCharacter = function(data) {
         this.body=bodiesMain;
         return this;
     }
-    this.onCollisionStart = function(pair){        
-        if(pair.isSensor){
-            if(pair.bodyA.id===this.sensorLeft.id||pair.bodyB.id===this.sensorLeft.id){
-                this.sensorLeftBool = true;
-            }else if(pair.bodyA.id===this.sensorRight.id||pair.bodyB.id===this.sensorRight.id){
-                this.sensorRightBool = true;
-            }else if(pair.bodyA.id===this.sensorFloor.id||pair.bodyB.id===this.sensorFloor.id){
-                this.sensorFloorCount++;
-                this.updateFloor();
-            }
-        }else{
-            if(pair.bodyA.id===this.bodiesBody.id||pair.bodyB.id===this.bodiesBody.id){
-                if(this.sensorLeftBool){
-                    Body.translate( this.body, {x:1,y:0});
-                }else{
-                    Body.translate( this.body, {x:-1,y:0});
-                }
-            }
-        }
-    }
-    this.onCollisionEnd = function(pair){
-        if(pair.isSensor){
-            if(pair.bodyA.id===this.sensorLeft.id||pair.bodyB.id===this.sensorLeft.id){
-                this.sensorLeftBool = false;
-            }else if(pair.bodyA.id===this.sensorRight.id||pair.bodyB.id===this.sensorRight.id){
-                this.sensorRightBool = false;
-            }else if(pair.bodyA.id===this.sensorFloor.id||pair.bodyB.id===this.sensorFloor.id){
-                this.sensorFloorCount--;
-                this.updateFloor();
-            }
-        }
-    }
-    this.updateFloor = function(){
-        this.sensorFloorBool = this.sensorFloorCount>0;
-    }
     this.setControl =  function(control){
         this.control = control;
     }
     this.beforeUpdate = function(delta){
-        this.constructor.prototype.beforeUpdate();    
+        this.constructor.prototype.beforeUpdate.call(this);    
         this.stateMachine.stateTrigger();
     }
-    this.controlMove = function(bool){
+    this.controlMove = function(s){
         if(this.control.left.isDown){
             if(this.direction!=='left'){
                 this.direction='left';
@@ -379,7 +430,7 @@ var componentCharacter = function(data) {
                 //var v = this.body.velocity;
                 var temp = 1-Math.max(0, Math.min(1, v.x/(-8)));
                 var f = this.body.mass*0.008*temp;
-                Body.applyForce(this.body,this.body.position, {x: bool?-f:-f*0.03, y: 0});        
+                Body.applyForce(this.body,this.body.position, {x: -s*f, y: 0});        
             }                      
         }
         if(this.control.right.isDown){
@@ -395,7 +446,7 @@ var componentCharacter = function(data) {
                 //var v = this.body.velocity;
                 var temp = 1-Math.max(0, Math.min(1, v.x/(8)));
                 var f = this.body.mass*0.008*temp;
-                Body.applyForce(this.body,this.body.position, {x: bool?f:f*0.03, y: 0});               
+                Body.applyForce(this.body,this.body.position, {x: s*f, y: 0});               
             }
         }
     }

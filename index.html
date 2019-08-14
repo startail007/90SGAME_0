@@ -41,6 +41,8 @@
             var game_view = new PIXI.Container();
             game_stage.addChild(game_view);
 
+            app.loader.add('map', 'js/map.json');
+            app.loader.add('circle01', 'img/circle01.png');
             app.loader.add('player', 'img/player.json');
             app.loader.add('bg01', 'img/bg01.png');
             app.loader.add('bg02', 'img/bg02.png');
@@ -54,12 +56,31 @@
                 init(loader, resources);
             });
 
+            Engine.collision = {
+                collisionStart:[],
+                collisionEnd:[]
+            };
+            Engine.collision.addCollisionStart = function(body, trigger){
+                this.collisionStart.push({
+                    body:body,
+                    trigger:trigger
+                });
+            }
+            Engine.collision.addCollisionEnd = function(body, trigger){
+                this.collisionEnd.push({
+                    body:body,
+                    trigger:trigger
+                });
+            }
+            //console.log(Matter)
             var engine=Engine.create(),
                 world=engine.world;
 
+                //console.log(engine);
+
             var render=Render.create({
                     engine:engine,
-                    //element:document.body,
+                    element:document.body,
                     options: {
                         width: sw,
                         height: sh
@@ -71,7 +92,7 @@
 
 
             function init(loader, resources){
-                //console.log(resources.aaa.textures)
+                //console.log(resources.map)
                 /*控制*/
                 var control = {
                     left:keyboard(37),
@@ -95,6 +116,9 @@
 
                 var floor_layer = new PIXI.Container();
                 game_view.addChild(floor_layer);
+
+                var prop_layer = new PIXI.Container();
+                game_view.addChild(prop_layer);
 
                 var container_layer = new PIXI.Container();
                 game_view.addChild(container_layer);
@@ -137,7 +161,7 @@
                     floor0001.position.x = option.width*0.5;                    
                     floor0001.position.y = option.height*0.5;
                     floor0001.anchor.set(0.5);
-                    floor0001.createBody({
+                    floor0001.createBody("rect",{
                         isStatic:true,
                         friction: 1,
                         frictionStatic:1,
@@ -149,6 +173,26 @@
                     floor0001.rotate(option.angle, {x:option.x,y:option.y});
                     return floor0001;
                 }
+                function createCircle(texture, option){
+                    option = Object.assign({
+                        x: 0,
+                        y: 0,
+                        radius: 50
+                    },option);
+
+                    var floor0001 = new PIXI.Sprite(texture);
+                    floor0001.width = option.radius*2;
+                    floor0001.height = option.radius*2;
+                    floor0001.anchor.set(0.5);
+                    floor0001.createBody("circle",{
+                        isSensor:true,
+                        isStatic:true
+                    });
+                    floor0001.translate(option.x,option.y);
+                    return floor0001;
+                }
+
+                
 
                 function createLenBox(texture, data, option){
                     option = Object.assign({
@@ -160,6 +204,7 @@
                     },option);
                     var pp = data;
                     var floors = [];
+                    var ttt = 0;
                     for(var i=0;i<pp.length-1;i++){
                         var pp0 = pp[i];
                         var pp1 = pp[i+1];
@@ -176,21 +221,39 @@
                         });
                         //console.log(pp0.x,option.y)
                         var floor_1 = createBox(texture,obj);
+                        floor_1.tilePosition.x = ttt;
+                        ttt+=length;
                         floors.push(floor_1);
+
+                        
+                    }
+
+                    for(var i=0;i<pp.length-1;i++){
+                        var pp0 = pp[i];
+                        var pp1 = pp[i+1];
+                        for(var j=0;j<4;j++){
+                            var circle0001 = createCircle(resources.circle01.texture,{
+                                x:option.x + pp0.x+(pp1.x-pp0.x)*j/4,
+                                y:option.y + pp0.y+(pp1.y-pp0.y)*j/4-30,
+                                radius:15
+                            });
+                            res_layer.addChild(circle0001);
+                            circle0001.addBodyfrom(world).update();
+                        }
                     }
                     return floors;
                 }
-                var floors = createLenBox(resources.floor02.texture,[
+                /*var floors = createLenBox(resources.floor02.texture,[
                     {x:0,y:0},
-                    {x:100,y:-50},
+                    {x:200,y:-50},
                     {x:400,y:-50},
-                    {x:600,y:50}
+                    {x:600,y:0}
                 ],{
                     x:0,
                     y:530,
-                    height:100,
-                    textureScale:100/66,
-                    bound:{left:0,right:0,top:30,bottom:0}
+                    height:66,
+                    textureScale:1,
+                    bound:{left:0,right:0,top:20,bottom:0}
                 }).forEach(function(el){
                     floor_layer.addChild(el);
                     el.addBodyfrom(world).update();
@@ -203,9 +266,9 @@
                 ],{
                     x:600,
                     y:430,
-                    height:100,
-                    textureScale:100/66,
-                    bound:{left:0,right:0,top:30,bottom:0}
+                    height:66,
+                    textureScale:1,
+                    bound:{left:0,right:0,top:20,bottom:0}
                 }).forEach(function(el){
                     floor_layer.addChild(el);
                     el.addBodyfrom(world).update();
@@ -218,9 +281,9 @@
                 ],{
                     x:1800,
                     y:300,
-                    height:100,
-                    textureScale:100/66,
-                    bound:{left:0,right:0,top:30,bottom:0}
+                    height:66,
+                    textureScale:1,
+                    bound:{left:0,right:0,top:20,bottom:0}
                 }).forEach(function(el){
                     floor_layer.addChild(el);
                     el.addBodyfrom(world).update();
@@ -228,14 +291,144 @@
 
                 var floor_5 = createBox(resources.floor02.texture,{
                     x:0,
-                    y:600-100+30,
+                    y:600-100+20,
                     width:9000,
-                    height:100,
-                    textureScale:100/66,
-                    bound:{left:0,right:0,top:30,bottom:0}
+                    height:66,
+                    textureScale:1,
+                    bound:{left:0,right:0,top:20,bottom:0}
                 });
                 floor_layer.addChild(floor_5);
-                floor_5.addBodyfrom(world).update();
+                floor_5.addBodyfrom(world).update();*/
+                /*var c0 = Body.nextGroup(false);
+                var c1 = Body.nextGroup(false);
+                var c2 = Body.nextGroup(false);
+                var c3 = Body.nextGroup(false);*/
+                //console.log(c0);
+                function createBox01(texture, option){
+                    option = Object.assign({
+                        x: 0,
+                        y: 0,
+                        width: 50,
+                        height: 50,
+                        bound: undefined,
+                        textureScale:0.5,
+                        angle:0
+                    },option);
+                    //texture.wrapMode = PIXI.WRAP_MODES.REPEAT;
+                    //var floor0001 = new PIXI.Sprite(texture);
+                    var floor0001 = new PIXI.TilingSprite(
+                        texture,
+                        option.width,
+                        option.height,
+                    );
+                    floor0001.tileScale.x = option.textureScale;
+                    floor0001.tileScale.y = option.textureScale;
+                    /*floor0001.tilePosition.x += 1;
+                    floor0001.tilePosition.y += 1;*/
+                    /*floor0001.position.x = -option.width*0.5;                    
+                    floor0001.position.y = -option.height*0.5;*/
+                    floor0001.anchor.set(0.5);
+                    floor0001.createBody("rect",{
+                        data:{
+                            el:item,
+                            collision:function(){
+                                //console.log('aaa');
+                            }
+                        },
+                        isStatic:true,
+                        friction: 1,
+                        frictionStatic:1,
+                        restitution:0,
+                        /*collisionFilter:{
+                            //category:0x0004,
+                            //mask:0x0001 | 0x0004,
+                            mask:0x0001,
+                            group:1,
+                        }*/
+                        /*collisionFilter:{
+                            category:0x0002,
+                            mask:0x0002|0x0001,
+                            group:4
+                        },*/
+                    },option.bound);
+                    var tx = (option.bound?option.bound.left:0);
+                    var ty = (option.bound?option.bound.top:0);
+                    floor0001.translate(option.x + floor0001.pivot.x,option.y + floor0001.pivot.y);
+                    floor0001.rotate(option.angle, {x:option.x,y:option.y});
+                    return floor0001;
+                }
+
+                function createCircle01(texture, option){
+                    option = Object.assign({
+                        x: 0,
+                        y: 0,
+                        radius: 50
+                    },option);
+
+                    var item = new PIXI.Sprite(texture);
+                    item.width = option.radius*2;
+                    item.height = option.radius*2;
+                    item.anchor.set(0.5);
+                    item.createBody("circle",{
+                        data:{
+                            el:item,
+                            collision:function(){
+                                item.visible = false;
+                            }
+                        },
+                        isSensor:true,
+                        isStatic:true,
+                        /*collisionFilter:{
+                            //category:0x0008,
+                            //mask:0x0002 | 0x0008,
+                            mask:0x0002,
+                            group:2,
+                        }*/
+                    });
+                    /*Engine.collision.addCollisionStart(item.body,function(){
+                        console.log("aaaa");
+                    });*/
+                    /*Engine.collision.addCollisionStart(this.sensorFloor,function(){
+                        that.sensorFloorCount++;
+                        that.updateFloor();
+                    });*/
+                    item.translate(option.x,option.y);
+                    return item;
+                }
+
+                var map = resources.map.data;
+                var floors = map.floor;
+                var props = map.prop;
+                for(var key in floors){
+                    var itemData = floors[key];
+                    //console.log(floor);
+                    var item = createBox01(resources.floor02.texture,{
+                        x:itemData.x,
+                        y:itemData.y,
+                        width:itemData.width,
+                        height:itemData.height,
+                        angle:itemData.angle,
+                        textureScale:1,
+                        bound:{left:0,right:0,top:20,bottom:0}
+                    });
+                    floor_layer.addChild(item);
+                    item.addBodyfrom(world).update();
+                }
+                for(var key in props){
+                    var itemData = props[key];
+                    //console.log(floor);
+                    var item = createCircle01(resources.circle01.texture,{
+                        x:itemData.x,
+                        y:itemData.y,
+                        radius:itemData.width*0.5,
+                        textureScale:1
+                    });
+                    prop_layer.addChild(item);
+                    item.addBodyfrom(world).update();
+                }
+
+
+                
 
                 var floor_6 = createBox(resources.floor01.texture,{
                     x:40,
@@ -264,23 +457,41 @@
                 });
                 character01.addBodyfrom(world).translate(app.screen.width*0.5,600-100-400).update();
                 character01.setControl(control);
+                /*Engine.collision.addCollisionStart(character01.sensorRange,function(){
+                        console.log("wewew");
+                    });*/
+                
                 updateView();
 
-                
-                Events.on(engine, 'collisionEnd', function(event) {
-                    var pairs = event.pairs;
-                    for(var key in pairs){
-                        var pair = pairs[key];                        
-                        character01.onCollisionEnd(pair);                        
-                    }
-                });
                 Events.on(engine, 'collisionStart', function(event) {
                     var pairs = event.pairs;
                     for(var key in pairs){
                         var pair = pairs[key];
-                        character01.onCollisionStart(pair);                        
+                        Engine.collision.collisionStart.forEach(function(el){
+                            if(pair.bodyA.id===el.body.id){
+                                el.trigger(pair.bodyB);
+                            }else if(pair.bodyB.id===el.body.id){
+                                el.trigger(pair.bodyA);
+                            }
+                        });
+                        //character01.onCollisionStart(pair);                        
                     }
-                });    
+                }); 
+                Events.on(engine, 'collisionEnd', function(event) {
+                    var pairs = event.pairs;
+                    for(var key in pairs){
+                        var pair = pairs[key]; 
+                        Engine.collision.collisionEnd.forEach(function(el){
+                            if(pair.bodyA.id===el.body.id){
+                                el.trigger(pair.bodyB);
+                            }else if(pair.bodyB.id===el.body.id){
+                                el.trigger(pair.bodyA);
+                            }
+                        });                                             
+                        //character01.onCollisionEnd(pair);                        
+                    }
+                });
+                   
 
                 var timestamp = engine.timing.timestamp;
                 var a0 = 0;
@@ -290,8 +501,11 @@
                     timestamp = event.timestamp;
                     a0+=delta/4000;
                     a0%=1;
-                    a1+=delta/(90*1000);
-                    a1%=1;
+                    if(a1<1){                        
+                        a1+=delta/(90*1000);
+                        a1 = Math.min(a1,1);
+                    }
+                    /*a1%=1;*/
 
                     var easeInOutQuart =  function (x) {
                         return x < 0.5 ?
@@ -304,7 +518,7 @@
                     var vx = x - floor_6.body.position.x;
                     floor_6.move(vx,0);
 
-                    //cameraT.y=(1-a1)*(600-100);
+                    //cameraT.x=app.screen.width*0.5 + a1*(14000-app.screen.width);
                     /*var yy = 600-100;
 
                     var y = yy + (300-yy)*a1;
@@ -319,13 +533,14 @@
                 });
 
                 function updateView(){
-                    if(control.cameraUp.isDown){
+                    /*if(control.cameraUp.isDown){
                         cameraT.y-=40;
                     }
                     if(control.cameraDown.isDown){                        
                         cameraT.y+=40;
-                    }
+                    }*/
                     camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,9000 - app.screen.width*0.5);
+                    //camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
                     camera.y = Common.clamp(character01.body.position.y,app.screen.height*0.5,600-app.screen.height*0.5);
                     //camera.y = Common.clamp(/*character01.body.position.y + */cameraT.y,app.screen.height*0.5,600-app.screen.height*0.5);
                     var xx = -camera.x + app.screen.width*0.5;
