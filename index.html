@@ -10,6 +10,7 @@
     <script src="js/supplement.js"></script>
     <script src="js/pixi.min.js"></script>
     <script src="js/pixi-expansion.js"></script>
+    <script src="js/pixi-particles.js"></script>
     <script src="js/matter.min.js"></script>
     <link href="css/style.css" rel="stylesheet">
     <script>
@@ -42,6 +43,7 @@
             var game_view = new PIXI.Container();
             game_stage.addChild(game_view);
 
+            app.loader.add('emitter01', 'js/emitter01.json');
             app.loader.add('map', 'js/map.json');
             app.loader.add('circle01', 'img/circle01.png');
             app.loader.add('player', 'img/player.json');
@@ -81,7 +83,7 @@
 
             var render=Render.create({
                     engine:engine,
-                    element:document.body,
+                    //element:document.body,
                     options: {
                         width: sw,
                         height: sh
@@ -123,6 +125,9 @@
 
                 var container_layer = new PIXI.Container();
                 game_view.addChild(container_layer);
+
+                var particles_layer = new PIXI.Container();
+                game_view.addChild(particles_layer);
 
                 /*背景*/
                 /*var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width, app.screen.height);                
@@ -307,7 +312,14 @@
                         data:{
                             el:item,
                             collision:function(){
-                                item.visible = false;
+                                //if(item.visible){
+                                    //item.visible = false;
+                                    //console.log(item.position)
+                                    emitter.ownerPos.set(item.position.x,item.position.y);
+                                    emitter.emit = true; 
+                                    item.removeBodyfrom(world);
+                                    item.parent.removeChild(item);
+                                //}                                
                             }
                         },
                         isSensor:true,
@@ -368,10 +380,9 @@
                     var xx = itemData.end.x - itemData.start.x;
                     var yy = itemData.end.y - itemData.start.y;
                     var len = Math.sqrt(xx*xx + yy*yy);
-                    var duration = len*4000/300;
+                    var duration = len*4000/240;
                     //console.log(duration);
                     item.addAnimation("move",duration,true,function(rate,data,src){
-                        console.log('aaa');
                         var temp = EasingFunctions.easeInOutCubic(1-Math.abs(rate-0.5)*2);
                         var x = itemData.start.x + xx*temp;
                         var y = itemData.start.y + yy*temp;
@@ -426,6 +437,14 @@
                 });
                 floor_layer.addChild(floor_003);
                 floor_003.addBodyfrom(world).update();
+
+                var emitter = new PIXI.particles.Emitter(
+                    particles_layer,
+                    [resources.circle01.texture],
+                    resources.emitter01.data
+                );
+
+                emitter.emit = false; 
 
 
                 var playerTextures = [];
@@ -486,6 +505,7 @@
                 Events.on(engine, 'beforeUpdate', function(event) {
                     delta = event.timestamp - timestamp;
                     timestamp = event.timestamp;
+                    emitter.update(delta*0.001);
                     if(a1<1){                        
                         a1+=delta/(90*1000);
                         a1 = Math.min(a1,1);

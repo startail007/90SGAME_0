@@ -44,6 +44,19 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
         World.add(target,this.body);
         return this;
     },
+    removeBodyfrom:function(target){
+        var that = this;
+        var index = PIXI.updateList.findIndex(function(el){
+            return el===that
+        });
+        if(index!==-1){
+            PIXI.updateList.splice(index, 1);
+            World.remove(target,this.body); 
+            this.body = undefined;
+            delete this.body;
+        }
+        return this;
+    },
     update:function(){
         if(this.body){  
             this.position = this.body.position;
@@ -417,7 +430,7 @@ var componentCharacter = function(data) {
         var sensorRight = Bodies.rectangle(0+dimension.bodyWidth*0.5-dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
         var sensorFloor = Bodies.rectangle(0,-dimension.footRadius+dimension.footRadius*1,dimension.footDistance+dimension.footRadius*2*0.5,dimension.footRadius,{isSensor:true,density:0});
 
-        var sensorCollision = Bodies.circle(0,-dimension.bodyHeight*0.5,dimension.bodyWidth*0.5,{collisionGroup:1,isSensor:true,density:0});
+        var sensorCollision = Bodies.circle(0,-dimension.bodyHeight*0.5,dimension.bodyWidth*0.7,{collisionGroup:1,isSensor:true,density:0});
 
         var that = this;
 
@@ -460,7 +473,6 @@ var componentCharacter = function(data) {
                 Body.translate( that.body, {x:1,y:0});
             }
             if(that.sensorRightBool){
-                console.log('aaa');
                 Body.translate( that.body, {x:-1,y:0});
             }
             //console.log('aaa')
@@ -470,7 +482,6 @@ var componentCharacter = function(data) {
                 Body.translate( that.body, {x:1,y:0});
             }
             if(that.sensorRightBool){
-                console.log('aaa');
                 Body.translate( that.body, {x:-1,y:0});
             }
             //console.log('aaa')
