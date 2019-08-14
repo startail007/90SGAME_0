@@ -312,14 +312,17 @@
                         },
                         isSensor:true,
                         isStatic:true,
+                        collisionGroup:1
                     });
                     item.translate(option.x,option.y);
                     return item;
                 }
 
                 var map = resources.map.data;
+                var flag = map.flag;
                 var floors = map.floor;
                 var props = map.prop;
+                var moveFloor = map.moveFloor;
                 for(var key in floors){
                     var itemData = floors[key];
                     var item = createBox01(resources.floor02.texture,{
@@ -345,11 +348,43 @@
                     prop_layer.addChild(item);
                     item.addBodyfrom(world).update();
                 }
+                for(var key in moveFloor){
+                    var itemData = moveFloor[key];
+                    createMoveFloor(itemData);
+                }
+
+                function createMoveFloor(itemData){
+                    var item = createBox01(resources.floor01.texture,{
+                        x:itemData.x,
+                        y:itemData.y,
+                        width:itemData.width,
+                        height:itemData.height,
+                        angle:itemData.angle,
+                        textureScale:0.5
+                    });
+                    floor_layer.addChild(item);
+                    item.addBodyfrom(world).update();
+                    var xx = itemData.end.x - itemData.start.x;
+                    var yy = itemData.end.y - itemData.start.y;
+                    var len = Math.sqrt(xx*xx + yy*yy);
+                    var duration = len*4000/300;
+                    //console.log(duration);
+                    item.addAnimation("move",duration,true,function(rate,data,src){
+                        console.log('aaa');
+                        var temp = EasingFunctions.easeInOutCubic(1-Math.abs(rate-0.5)*2);
+                        var x = itemData.start.x + xx*temp;
+                        var y = itemData.start.y + yy*temp;
+                        var vx = x - src.body.position.x;
+                        var vy = y - src.body.position.y;
+                        src.move(vx,vy);
+                    }).setTime(Math.random()*duration).play();
+                    return item;
+                }
 
 
                 
 
-                var floor_001 = createBox01(resources.floor01.texture,{
+                /*var floor_001 = createBox01(resources.floor01.texture,{
                     x:40,
                     y:480,
                     width:150,
@@ -379,7 +414,17 @@
                     var y = 100 + (540-100)*temp;
                     var vy = y - src.body.position.y;
                     src.move(0,vy);
-                }).play();
+                }).play();*/
+
+                var floor_003 = createBox01(resources.floor01.texture,{
+                    x:25,
+                    y:300,
+                    width:50,
+                    height:600,
+                    textureScale:0.5
+                });
+                floor_layer.addChild(floor_003);
+                floor_003.addBodyfrom(world).update();
 
 
                 var playerTextures = [];
@@ -396,7 +441,7 @@
                     footRadius: 15*s,
                     footDistance: 20*s
                 });
-                character01.addBodyfrom(world).translate(app.screen.width*0.5,600-100-400).update();
+                character01.addBodyfrom(world).translate(flag.x,flag.y).update();
                 character01.setControl(control);
                 
                 updateView();
@@ -406,10 +451,12 @@
                     for(var key in pairs){
                         var pair = pairs[key];
                         Engine.collision.collisionStart.forEach(function(el){
-                            if(pair.bodyA.id===el.body.id){
-                                el.trigger(pair.bodyB);
-                            }else if(pair.bodyB.id===el.body.id){
-                                el.trigger(pair.bodyA);
+                            if(pair.bodyA.collisionGroup===pair.bodyB.collisionGroup){
+                                if(pair.bodyA.id===el.body.id){
+                                    el.trigger(pair.bodyB);
+                                }else if(pair.bodyB.id===el.body.id){
+                                    el.trigger(pair.bodyA);
+                                }
                             }
                         });
                         //character01.onCollisionStart(pair);                        
@@ -418,12 +465,14 @@
                 Events.on(engine, 'collisionEnd', function(event) {
                     var pairs = event.pairs;
                     for(var key in pairs){
-                        var pair = pairs[key]; 
+                        var pair = pairs[key];
                         Engine.collision.collisionEnd.forEach(function(el){
-                            if(pair.bodyA.id===el.body.id){
-                                el.trigger(pair.bodyB);
-                            }else if(pair.bodyB.id===el.body.id){
-                                el.trigger(pair.bodyA);
+                            if(pair.bodyA.collisionGroup===pair.bodyB.collisionGroup){
+                                if(pair.bodyA.id===el.body.id){
+                                    el.trigger(pair.bodyB);
+                                }else if(pair.bodyB.id===el.body.id){
+                                    el.trigger(pair.bodyA);
+                                }
                             }
                         });                                             
                         //character01.onCollisionEnd(pair);                        
@@ -457,7 +506,7 @@
                     if(control.cameraDown.isDown){                        
                         cameraT.y+=40;
                     }*/
-                    camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,9000 - app.screen.width*0.5);
+                    camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
                     //camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
                     camera.y = Common.clamp(character01.body.position.y,app.screen.height*0.5,600-app.screen.height*0.5);
                     //camera.y = Common.clamp(/*character01.body.position.y + */cameraT.y,app.screen.height*0.5,600-app.screen.height*0.5);
