@@ -73,7 +73,6 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
     },
     move:function(x, y){
         if(this.body){
-            console.log(x)
             Body.setPosition(this.body, {x:this.body.position.x + x,y:this.body.position.y + y});
             Body.setVelocity(this.body, {x:x,y:y});
         }

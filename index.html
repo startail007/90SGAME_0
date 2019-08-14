@@ -354,13 +354,14 @@
                 }
 
                 function createMoveFloor(itemData){
-                    var item = createBox01(resources.floor01.texture,{
+                    var item = createBox01(resources.floor02.texture,{
                         x:itemData.x,
                         y:itemData.y,
                         width:itemData.width,
-                        height:itemData.height,
+                        height:66,
                         angle:itemData.angle,
-                        textureScale:0.5
+                        textureScale:1,
+                        bound:{left:0,right:0,top:20,bottom:0}
                     });
                     floor_layer.addChild(item);
                     item.addBodyfrom(world).update();
