@@ -1,23 +1,26 @@
 PIXI.updateList = [];
 PIXI.beforeUpdateList = [];
+/*PIXI.DisplayObject.prototype = {
+    aaa: {}
+};*/
+/*function aabvb(){
+
+}
+Object.defineProperty(aabvb.prototype, 'aaa', {
+    value: {},
+    writable: true,
+    configurable: true,
+    enumerable: false, // 設定 hello 為不可列舉的屬性
+});
+var temp0 = new aabvb();
+temp0.aaa["aa"] = 10;
+console.log(temp0.aaa);
+var temp1 = new aabvb();
+console.log(temp1.aaa);
+PIXI.DisplayObject.prototype.aaa = {};*/
+//console.log(PIXI.DisplayObject.prototype)
 PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {            
-    body:null,
-    /*createBody:function(type, option, bound){
-        option = option||{};
-        if(type==="rect"){
-            bound = bound||{};
-            bound.left = bound.left||0;
-            bound.right = bound.right||0;
-            bound.top = bound.top||0;
-            bound.bottom = bound.bottom||0;
-            this.body=Bodies.rectangle(this.width*0.5,this.height*0.5,this.width-bound.left-bound.right,this.height-bound.top-bound.bottom,option,false); 
-            this.pivot.set((bound.left- bound.right)*0.5, (bound.top - bound.bottom)*0.5);     
-        }else if(type==="circle"){
-            this.body=Bodies.circle(0,0,this.width*0.5,option);
-        }
-                    
-        return this;
-    },*/
+    //body:null,
     createBody:function(type, option, bound){
         option = option||{};
         if(type==="rect"){
@@ -50,9 +53,11 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
     },
     beforeUpdate:function(delta){
         //console.log(delta,this.animationList[0]);
-        this.animationList.forEach(function(el){                
-                el.run(delta);
-            });
+        if(this.animationList){
+            this.animationList.forEach(function(el){                
+                    el.run(delta);
+                });
+        }
     },           
     translate:function(x, y){
         if(this.body){
@@ -68,13 +73,17 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
     },
     move:function(x, y){
         if(this.body){
+            console.log(x)
             Body.setPosition(this.body, {x:this.body.position.x + x,y:this.body.position.y + y});
             Body.setVelocity(this.body, {x:x,y:y});
         }
         return this;  
     },
-    animationList:[],
+    //animationList:[],
     addAnimation:function(name, duration, loop, fun){
+        if(!this.animationList){
+            this.animationList = [];
+        }
         var temp = new animation(name, duration, loop, fun, this);
         var that = this;
         var index = PIXI.beforeUpdateList.findIndex(function(el){
@@ -83,7 +92,7 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
         if(index===-1){
             PIXI.beforeUpdateList.push(this);
         }
-        this.animationList = this.animationList.concat([temp]);
+        this.animationList.push(temp);
         return temp;
     }
 });
@@ -96,21 +105,30 @@ function animation(name, duration, loop, fun, src){
     this.run = function(delta){
         if(this.playing){
             this.time+=delta;
-            if(this.loop){
-                this.time%=this.duration;
-            }else{
-                if(this.time>this.duration){
-                    this.time = this.duration;
-                    this.playing = false;
-                }
-            }
-            //console.log(delta,this.time)
-            fun(delta,this.time/this.duration,this, this.src);
+            this.update();
         }
+    };
+    this.update = function(){
+        if(this.loop){
+            this.time%=this.duration;
+        }else{
+            if(this.time>this.duration){
+                this.time = this.duration;
+                this.playing = false;
+            }
+        }
+        //console.log(delta,this.time)
+        fun(this.time/this.duration,this, this.src);
     };
     this.playing = false;
     this.play = function(){
         this.playing = true;
+        return this;
+    }
+    this.setTime = function(value){
+        this.time = value;
+        this.update();
+        return this;
     }
 }
 var AnimatedSprite_gotoAndPlay = PIXI.AnimatedSprite.prototype.gotoAndPlay;
@@ -118,31 +136,37 @@ var AnimatedSprite_gotoAndStop = PIXI.AnimatedSprite.prototype.gotoAndStop;
 var AnimatedSprite_render = PIXI.AnimatedSprite.prototype._render;
 //PIXI.AnimatedSprite.prototype.aaa = 'asdasd';
 PIXI.AnimatedSprite.prototype = Object.assign(PIXI.AnimatedSprite.prototype, {
-    frameTags:{},
-    currentlyTag:0,
+    initTags:function(){
+        this.frameTags = {};
+        this.currentlyTag = 0;
+    },
     gotoAndPlay:function(t){
-        var tag = this.frameTags[t];        
+        if(!this.frameTags||typeof(t)==='number'){
+            this.currentlyTag = t;
+            this.animationSpeed = 1;
+            AnimatedSprite_gotoAndPlay.call(this,t);
+            return;
+        }
+        var tag = this.frameTags[t];
         if(tag){
             this.currentlyTag = t;
             this.animationSpeed = tag.speed;
             AnimatedSprite_gotoAndPlay.call(this,tag.start);
-        }else if(typeof(t)==='number'){
-            this.currentlyTag = t;
-            this.animationSpeed = 1;
-            AnimatedSprite_gotoAndPlay.call(this,t);
-        }        
+        }      
     },
     gotoAndStop:function(t){
+        if(!this.frameTags||typeof(t)==='number'){
+            this.currentlyTag = t;
+            this.animationSpeed = 1;
+            AnimatedSprite_gotoAndStop.call(this,t);
+            return;
+        }
         var tag = this.frameTags[t];
         if(tag){
             this.currentlyTag = t;
             this.animationSpeed = tag.speed;
             AnimatedSprite_gotoAndStop.call(this,tag.start);
-        }else if(typeof(t)==='number'){
-            this.currentlyTag = t;
-            this.animationSpeed = 1;
-            AnimatedSprite_gotoAndStop.call(this,t);
-        } 
+        }
     },
     changeFrame:function(){
         var tag = this.frameTags[this.currentlyTag];
@@ -220,6 +244,7 @@ var componentCharacter = function(data) {
     PIXI.beforeUpdateList.push(this);
     var player = new PIXI.AnimatedSprite(data);
     player.scale.set(1);
+    player.initTags();
     player.frameTags['idle'] = {start:0,end:23,loop:true,speed:0.4};
     player.frameTags['run'] = {start:24,end:47,loop:true,speed:1.4};
     player.frameTags['jumpBefore'] = {start:48,end:61,loop:false,speed:1.2};
@@ -234,6 +259,7 @@ var componentCharacter = function(data) {
     this.sensorRightBool = false;
     this.sensorFloorBool = false;
     this.direction = 'right';
+    this.jumpLock = false;
     //this.parts = [];
 
     var that = this;
@@ -250,8 +276,11 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('base',{
         trigger:function(){   
-            if(that.sensorFloorBool&&that.control.spacebar.isDown){
+            if(!that.jumpLock&&that.sensorFloorBool&&that.control.spacebar.isDown){
                 this.setState('jumpBefore');          
+            }
+            if(that.jumpLock&&!that.control.spacebar.isDown){
+                that.jumpLock = false;
             }
             if(!that.sensorFloorBool&&that.body.velocity.y>=1){
                 this.setState('fall');
@@ -293,12 +322,17 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('jumpBefore',{
         trigger:function(state){
-            that.controlMove(0.7);
+            if(that.control.left.isDown){
+                that.controlMove(!that.sensorLeftBool?0.7:0);
+            }else if(that.control.right.isDown){
+                that.controlMove(!that.sensorRightBool?0.7:0);
+            }
             if(that.player.currentFrame>=player.frameTags[state.id].end){                
                 this.setState('jump');
             }
         },
         input:function(){
+            that.jumpLock = true;
             that.player.gotoAndPlay('jumpBefore');
         },
         enter:function(){
@@ -310,7 +344,11 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('jump',{
         trigger:function(state){
-            that.controlMove(0.1);
+            if(that.control.left.isDown){
+                that.controlMove(!that.sensorLeftBool?0.1:0);
+            }else if(that.control.right.isDown){
+                that.controlMove(!that.sensorRightBool?0.1:0);
+            }
             if(that.body.velocity.y>0){
                 this.setState('fall');
             }
@@ -334,8 +372,16 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('fall',{
         trigger:function(){
-            that.controlMove(0.03);
+            if(that.control.left.isDown){
+                that.controlMove(!that.sensorLeftBool?0.03:0);
+            }else if(that.control.right.isDown){
+                //console.log(that.body.velocity.x,!that.sensorRightBool?0.03:0);
+                that.controlMove(!that.sensorRightBool?0.03:0);
+            }
             if(that.sensorFloorBool){
+                if(!that.control.spacebar.isDown){
+                    that.jumpLock = false;
+                }
                 this.setState('base');
             }
         },
@@ -370,9 +416,9 @@ var componentCharacter = function(data) {
         
         var sensorLeft = Bodies.rectangle(0-dimension.bodyWidth*0.5+dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
         var sensorRight = Bodies.rectangle(0+dimension.bodyWidth*0.5-dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
-        var sensorFloor = Bodies.rectangle(0,-dimension.footRadius+dimension.footRadius*1,dimension.footDistance+dimension.footRadius*2*0.8,dimension.footRadius,{isSensor:true,density:0});
+        var sensorFloor = Bodies.rectangle(0,-dimension.footRadius+dimension.footRadius*1,dimension.footDistance+dimension.footRadius*2*0.5,dimension.footRadius,{isSensor:true,density:0});
 
-        var sensorCollision = Bodies.circle(0,-dimension.bodyHeight*0.5,dimension.bodyWidth*0.5,{isSensor:true,density:0});
+        var sensorCollision = Bodies.circle(0,-dimension.bodyHeight*0.5,dimension.bodyWidth*0.5,{collisionGroup:1,isSensor:true,density:0});
 
         var that = this;
 
@@ -383,63 +429,60 @@ var componentCharacter = function(data) {
                     }
                 }
             });
-        function collisionToBool(sensor, judge, fun){
+        function collisionToBool(sensor, fun, judge){
             var sensorCount = 0;
             var updateCollision = function(body){
                 fun(body,sensorCount>0);
             }
             Engine.collision.addCollisionStart(sensor,function(body){
-                    if(judge(body)){
+                    if(!judge||judge(body)){
                         sensorCount++;
                         updateCollision(body);
                     }
                 });
             Engine.collision.addCollisionEnd(sensor,function(body){
-                    if(judge(body)){                        
+                    if(!judge||judge(body)){                        
                         sensorCount--;
                         updateCollision(body);
                     }
                 });
         }
-        collisionToBool(sensorLeft,function(body){
-            if(body.isSensor){
-                return;
-            }
-            return true;
-        },function(body,bool){            
+        collisionToBool(sensorLeft,function(body,bool){            
             that.sensorLeftBool = bool;
         });
-        collisionToBool(sensorRight,function(body){
-            if(body.isSensor){
-                return;
-            }
-            return true;
-        },function(body,bool){
+        collisionToBool(sensorRight,function(body,bool){
             that.sensorRightBool = bool;
         });
-        collisionToBool(sensorFloor,function(body){
-            if(body.isSensor){
-                return;
-            }
-            return true;
-        },function(body,bool){
+        collisionToBool(sensorFloor,function(body,bool){
             that.sensorFloorBool = bool;
         });
+        Engine.collision.addCollisionEnd(bodiesHead,function(body){
+            if(that.sensorLeftBool){
+                Body.translate( that.body, {x:1,y:0});
+            }
+            if(that.sensorRightBool){
+                console.log('aaa');
+                Body.translate( that.body, {x:-1,y:0});
+            }
+            //console.log('aaa')
+        });
         Engine.collision.addCollisionEnd(bodiesBody,function(body){
-                if(body.isSensor){
-                    return
-                }
-                if(that.sensorLeftBool){
-                    Body.translate( that.body, {x:1,y:0});
-                }
-                if(that.sensorRightBool){
-                    Body.translate( that.body, {x:-1,y:0});
-                }
-            });
+            if(that.sensorLeftBool){
+                Body.translate( that.body, {x:1,y:0});
+            }
+            if(that.sensorRightBool){
+                console.log('aaa');
+                Body.translate( that.body, {x:-1,y:0});
+            }
+            //console.log('aaa')
+        });
 
         option = Object.assign({
-            friction: 0.5,   
+            friction: 0.5,
+            /*frictionStatic: 0,*/
+            /*frictionAir: 0,*/    
             inertia: Infinity,
+            restitution: 0.03,
             parts:[bodiesHead,bodiesLeftFoot,bodiesRightFoot,bodiesBody,sensorLeft,sensorRight,sensorFloor,sensorCollision]
         },option);
 
@@ -455,7 +498,7 @@ var componentCharacter = function(data) {
         this.control = control;
     }
     this.beforeUpdate = function(delta){
-        this.constructor.prototype.beforeUpdate.call(this);    
+        this.constructor.prototype.beforeUpdate.call(this,delta);    
         this.stateMachine.stateTrigger();
     }
     this.controlMove = function(s){
