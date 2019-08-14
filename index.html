@@ -518,7 +518,7 @@
                     var vx = x - floor_6.body.position.x;
                     floor_6.move(vx,0);
 
-                    //cameraT.x=app.screen.width*0.5 + a1*(14000-app.screen.width);
+                    cameraT.x=app.screen.width*0.5 + a1*(14000-app.screen.width);
                     /*var yy = 600-100;
 
                     var y = yy + (300-yy)*a1;
@@ -539,8 +539,8 @@
                     if(control.cameraDown.isDown){                        
                         cameraT.y+=40;
                     }*/
-                    camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,9000 - app.screen.width*0.5);
-                    //camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
+                    //camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,9000 - app.screen.width*0.5);
+                    camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
                     camera.y = Common.clamp(character01.body.position.y,app.screen.height*0.5,600-app.screen.height*0.5);
                     //camera.y = Common.clamp(/*character01.body.position.y + */cameraT.y,app.screen.height*0.5,600-app.screen.height*0.5);
                     var xx = -camera.x + app.screen.width*0.5;

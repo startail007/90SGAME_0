@@ -343,7 +343,6 @@ var componentCharacter = function(data) {
         function collisionToBool(sensor, judge, fun){
             var sensorCount = 0;
             var updateCollision = function(body){
-                console.log(sensorFloor===sensor,sensorCount)
                 fun(body,sensorCount>0);
             }
             Engine.collision.addCollisionStart(sensor,function(body){
