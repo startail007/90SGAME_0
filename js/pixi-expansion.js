@@ -1,4 +1,5 @@
-PIXI.bodyList = [];
+PIXI.updateList = [];
+PIXI.beforeUpdateList = [];
 PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {            
     body:null,
     /*createBody:function(type, option, bound){
@@ -36,7 +37,7 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
         return this;
     },
     addBodyfrom:function(target){
-        PIXI.bodyList.push(this);
+        PIXI.updateList.push(this);
         World.add(target,this.body);
         return this;
     },
@@ -47,8 +48,11 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
         }
         return this;
     },
-    beforeUpdate:function(){
-        //console.log(this,this.onCollisionStart,'aaa');
+    beforeUpdate:function(delta){
+        //console.log(delta,this.animationList[0]);
+        this.animationList.forEach(function(el){                
+                el.run(delta);
+            });
     },           
     translate:function(x, y){
         if(this.body){
@@ -68,8 +72,47 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
             Body.setVelocity(this.body, {x:x,y:y});
         }
         return this;  
+    },
+    animationList:[],
+    addAnimation:function(name, duration, loop, fun){
+        var temp = new animation(name, duration, loop, fun, this);
+        var that = this;
+        var index = PIXI.beforeUpdateList.findIndex(function(el){
+            return that===el;
+        });
+        if(index===-1){
+            PIXI.beforeUpdateList.push(this);
+        }
+        this.animationList = this.animationList.concat([temp]);
+        return temp;
     }
 });
+function animation(name, duration, loop, fun, src){
+    this.name = name;
+    this.time = 0;
+    this.duration = duration;
+    this.loop = loop;
+    this.src = src;
+    this.run = function(delta){
+        if(this.playing){
+            this.time+=delta;
+            if(this.loop){
+                this.time%=this.duration;
+            }else{
+                if(this.time>this.duration){
+                    this.time = this.duration;
+                    this.playing = false;
+                }
+            }
+            //console.log(delta,this.time)
+            fun(delta,this.time/this.duration,this, this.src);
+        }
+    };
+    this.playing = false;
+    this.play = function(){
+        this.playing = true;
+    }
+}
 var AnimatedSprite_gotoAndPlay = PIXI.AnimatedSprite.prototype.gotoAndPlay;
 var AnimatedSprite_gotoAndStop = PIXI.AnimatedSprite.prototype.gotoAndStop;
 var AnimatedSprite_render = PIXI.AnimatedSprite.prototype._render;
@@ -174,7 +217,7 @@ var stateMachine = function(){
 
 var componentCharacter = function(data) {
     this.__super(); 
-
+    PIXI.beforeUpdateList.push(this);
     var player = new PIXI.AnimatedSprite(data);
     player.scale.set(1);
     player.frameTags['idle'] = {start:0,end:23,loop:true,speed:0.4};

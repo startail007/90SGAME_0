@@ -6,6 +6,7 @@
     <meta charset="UTF-8">
     <meta name="description" content="">
     <meta name="keywords" content="">
+    <script src="js/ease.js"></script>
     <script src="js/supplement.js"></script>
     <script src="js/pixi.min.js"></script>
     <script src="js/pixi-expansion.js"></script>
@@ -257,53 +258,9 @@
                 }).forEach(function(el){
                     floor_layer.addChild(el);
                     el.addBodyfrom(world).update();
-                });
+                });*/
 
-                var floors = createLenBox(resources.floor02.texture,[
-                    {x:0,y:0},
-                    {x:600,y:-100},
-                    {x:1000,y:-100}
-                ],{
-                    x:600,
-                    y:430,
-                    height:66,
-                    textureScale:1,
-                    bound:{left:0,right:0,top:20,bottom:0}
-                }).forEach(function(el){
-                    floor_layer.addChild(el);
-                    el.addBodyfrom(world).update();
-                });
-
-                var floors = createLenBox(resources.floor02.texture,[
-                    {x:0,y:0},
-                    {x:200,y:50},
-                    {x:1000,y:50}
-                ],{
-                    x:1800,
-                    y:300,
-                    height:66,
-                    textureScale:1,
-                    bound:{left:0,right:0,top:20,bottom:0}
-                }).forEach(function(el){
-                    floor_layer.addChild(el);
-                    el.addBodyfrom(world).update();
-                });
-
-                var floor_5 = createBox(resources.floor02.texture,{
-                    x:0,
-                    y:600-100+20,
-                    width:9000,
-                    height:66,
-                    textureScale:1,
-                    bound:{left:0,right:0,top:20,bottom:0}
-                });
-                floor_layer.addChild(floor_5);
-                floor_5.addBodyfrom(world).update();*/
-                /*var c0 = Body.nextGroup(false);
-                var c1 = Body.nextGroup(false);
-                var c2 = Body.nextGroup(false);
-                var c3 = Body.nextGroup(false);*/
-                //console.log(c0);
+                
                 function createBox01(texture, option){
                     option = Object.assign({
                         x: 0,
@@ -314,48 +271,25 @@
                         textureScale:0.5,
                         angle:0
                     },option);
-                    //texture.wrapMode = PIXI.WRAP_MODES.REPEAT;
-                    //var floor0001 = new PIXI.Sprite(texture);
-                    var floor0001 = new PIXI.TilingSprite(
+                    var item = new PIXI.TilingSprite(
                         texture,
                         option.width,
                         option.height,
                     );
-                    floor0001.tileScale.x = option.textureScale;
-                    floor0001.tileScale.y = option.textureScale;
-                    /*floor0001.tilePosition.x += 1;
-                    floor0001.tilePosition.y += 1;*/
-                    /*floor0001.position.x = -option.width*0.5;                    
-                    floor0001.position.y = -option.height*0.5;*/
-                    floor0001.anchor.set(0.5);
-                    floor0001.createBody("rect",{
-                        data:{
-                            el:item,
-                            collision:function(){
-                                //console.log('aaa');
-                            }
-                        },
+                    item.tileScale.x = option.textureScale;
+                    item.tileScale.y = option.textureScale;
+                    item.anchor.set(0.5);
+                    item.createBody("rect",{
                         isStatic:true,
                         friction: 1,
                         frictionStatic:1,
                         restitution:0,
-                        /*collisionFilter:{
-                            //category:0x0004,
-                            //mask:0x0001 | 0x0004,
-                            mask:0x0001,
-                            group:1,
-                        }*/
-                        /*collisionFilter:{
-                            category:0x0002,
-                            mask:0x0002|0x0001,
-                            group:4
-                        },*/
                     },option.bound);
                     var tx = (option.bound?option.bound.left:0);
                     var ty = (option.bound?option.bound.top:0);
-                    floor0001.translate(option.x + floor0001.pivot.x,option.y + floor0001.pivot.y);
-                    floor0001.rotate(option.angle, {x:option.x,y:option.y});
-                    return floor0001;
+                    item.translate(option.x + item.pivot.x,option.y + item.pivot.y);
+                    item.rotate(option.angle, {x:option.x,y:option.y});
+                    return item;
                 }
 
                 function createCircle01(texture, option){
@@ -378,20 +312,7 @@
                         },
                         isSensor:true,
                         isStatic:true,
-                        /*collisionFilter:{
-                            //category:0x0008,
-                            //mask:0x0002 | 0x0008,
-                            mask:0x0002,
-                            group:2,
-                        }*/
                     });
-                    /*Engine.collision.addCollisionStart(item.body,function(){
-                        console.log("aaaa");
-                    });*/
-                    /*Engine.collision.addCollisionStart(this.sensorFloor,function(){
-                        that.sensorFloorCount++;
-                        that.updateFloor();
-                    });*/
                     item.translate(option.x,option.y);
                     return item;
                 }
@@ -401,7 +322,6 @@
                 var props = map.prop;
                 for(var key in floors){
                     var itemData = floors[key];
-                    //console.log(floor);
                     var item = createBox01(resources.floor02.texture,{
                         x:itemData.x,
                         y:itemData.y,
@@ -416,7 +336,6 @@
                 }
                 for(var key in props){
                     var itemData = props[key];
-                    //console.log(floor);
                     var item = createCircle01(resources.circle01.texture,{
                         x:itemData.x,
                         y:itemData.y,
@@ -430,15 +349,37 @@
 
                 
 
-                var floor_6 = createBox(resources.floor01.texture,{
+                var floor_001 = createBox01(resources.floor01.texture,{
                     x:40,
-                    y:320,
+                    y:480,
                     width:150,
                     height:50,
                     textureScale:0.5
                 });
-                floor_layer.addChild(floor_6);
-                floor_6.addBodyfrom(world).update();
+                floor_layer.addChild(floor_001);
+                floor_001.addBodyfrom(world).update();
+                floor_001.addAnimation("move",4000,true,function(delta,rate,data,src){
+                    var temp = EasingFunctions.easeInOutQuart(1-Math.abs(rate-0.5)*2);
+                    var x = 40 + (240-40)*temp;
+                    var vx = x - src.body.position.x;
+                    src.move(vx,0);
+                }).play();
+
+                var floor_002 = createBox01(resources.floor01.texture,{
+                    x:600,
+                    y:100,
+                    width:150,
+                    height:50,
+                    textureScale:0.5
+                });
+                floor_layer.addChild(floor_002);
+                floor_002.addBodyfrom(world).update();
+                floor_002.addAnimation("move",8000,true,function(delta,rate,data,src){
+                    var temp = EasingFunctions.easeInOutQuart(1-Math.abs(rate-0.5)*2);
+                    var y = 100 + (540-100)*temp;
+                    var vy = y - src.body.position.y;
+                    src.move(0,vy);
+                }).play();
 
 
                 var playerTextures = [];
@@ -457,9 +398,6 @@
                 });
                 character01.addBodyfrom(world).translate(app.screen.width*0.5,600-100-400).update();
                 character01.setControl(control);
-                /*Engine.collision.addCollisionStart(character01.sensorRange,function(){
-                        console.log("wewew");
-                    });*/
                 
                 updateView();
 
@@ -494,38 +432,18 @@
                    
 
                 var timestamp = engine.timing.timestamp;
-                var a0 = 0;
                 var a1 = 0;
                 Events.on(engine, 'beforeUpdate', function(event) {
                     delta = event.timestamp - timestamp;
                     timestamp = event.timestamp;
-                    a0+=delta/4000;
-                    a0%=1;
                     if(a1<1){                        
                         a1+=delta/(90*1000);
                         a1 = Math.min(a1,1);
                     }
-                    /*a1%=1;*/
-
-                    var easeInOutQuart =  function (x) {
-                        return x < 0.5 ?
-                            2 * x * x :
-                            1 - Math.pow( -2 * x + 2, 2 ) / 2;
-                    }
-                    var temp = easeInOutQuart(1-Math.abs(a0-0.5)*2);
-
-                    var x = 0 + (300-0)*temp;
-                    var vx = x - floor_6.body.position.x;
-                    floor_6.move(vx,0);
-
-                    cameraT.x=app.screen.width*0.5 + a1*(14000-app.screen.width);
-                    /*var yy = 600-100;
-
-                    var y = yy + (300-yy)*a1;
-                    var vy = y - floor_5.body.position.y;
-                    floor_5.move(0,vy);*/
-
-                    character01.beforeUpdate(delta);
+                    //cameraT.x=app.screen.width*0.5 + a1*(14000-app.screen.width);                    
+                    PIXI.beforeUpdateList.forEach(function(el){
+                        el.beforeUpdate(delta);
+                    });
                     updateView(); 
                 });
 
@@ -539,8 +457,8 @@
                     if(control.cameraDown.isDown){                        
                         cameraT.y+=40;
                     }*/
-                    //camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,9000 - app.screen.width*0.5);
-                    camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
+                    camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,9000 - app.screen.width*0.5);
+                    //camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
                     camera.y = Common.clamp(character01.body.position.y,app.screen.height*0.5,600-app.screen.height*0.5);
                     //camera.y = Common.clamp(/*character01.body.position.y + */cameraT.y,app.screen.height*0.5,600-app.screen.height*0.5);
                     var xx = -camera.x + app.screen.width*0.5;
@@ -562,7 +480,7 @@
                 app.ticker.add(function(delta){    
                     /*bg01.tilePosition.x = (camera.x - app.screen.width*0.5)*0.2;
                     bg02.tilePosition.x = (camera.x - app.screen.width*0.5)*0.4;*/
-                    PIXI.bodyList.forEach(function(el){
+                    PIXI.updateList.forEach(function(el){
                         el.update();
                     });
                 });
