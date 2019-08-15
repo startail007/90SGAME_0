@@ -1,3 +1,4 @@
+(function(){
 PIXI.updateList = [];
 PIXI.beforeUpdateList = [];
 /*PIXI.DisplayObject.prototype = {
@@ -71,7 +72,13 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
                     el.run(delta);
                 });
         }
-    },           
+    },     
+    setPosition:function(x, y){
+        if(this.body){
+            Body.setPosition(this.body, {x:x,y:y});
+        }
+        return this;              
+    },      
     translate:function(x, y){
         if(this.body){
             Body.translate(this.body,{x: x, y: y});
@@ -91,7 +98,6 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
         }
         return this;  
     },
-    //animationList:[],
     addAnimation:function(name, duration, loop, fun){
         if(!this.animationList){
             this.animationList = [];
@@ -106,6 +112,22 @@ PIXI.DisplayObject.prototype = Object.assign(PIXI.DisplayObject.prototype, {
         }
         this.animationList.push(temp);
         return temp;
+    },
+    getAnimation:function(name){
+        if(this.animationList){
+            var index = this.animationList.findIndex(function(el){
+                return name===el.name;
+            });
+            if(index!==-1){
+                return this.animationList[index];
+            }
+        }
+    },
+    animationPlay:function(name){
+        var animation = this.getAnimation(name);
+        if(animation){
+            animation.play();
+        }
     }
 });
 function animation(name, duration, loop, fun, src){
@@ -251,7 +273,7 @@ var stateMachine = function(){
     }
 }
 
-var componentCharacter = function(data) {
+PIXI.componentCharacter = function(data) {
     this.__super(); 
     PIXI.beforeUpdateList.push(this);
     var player = new PIXI.AnimatedSprite(data);
@@ -266,12 +288,14 @@ var componentCharacter = function(data) {
     this.player = player;
     this.addChild(this.player);
 
-    this.control = null;
     this.sensorLeftBool = false;
     this.sensorRightBool = false;
     this.sensorFloorBool = false;
     this.direction = 'right';
     this.jumpLock = false;
+    this.controlLeft = false;
+    this.controlRight = false;
+    this.controlJump = false;
     //this.parts = [];
 
     var that = this;
@@ -288,10 +312,10 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('base',{
         trigger:function(){   
-            if(!that.jumpLock&&that.sensorFloorBool&&that.control.spacebar.isDown){
+            if(!that.jumpLock&&that.sensorFloorBool&&that.controlJump){
                 this.setState('jumpBefore');          
             }
-            if(that.jumpLock&&!that.control.spacebar.isDown){
+            if(that.jumpLock&&!that.controlJump){
                 that.jumpLock = false;
             }
             if(!that.sensorFloorBool&&that.body.velocity.y>=1){
@@ -306,7 +330,7 @@ var componentCharacter = function(data) {
     var stateMachine01_base = stateMachine01.activeSubStateMachine('base');
     stateMachine01_base.addState('idle',{
         trigger:function(){
-            if(that.control.left.isDown||that.control.right.isDown){                
+            if(that.controlLeft||that.controlRight){                
                 this.setState('run'); 
             }
         },
@@ -317,12 +341,12 @@ var componentCharacter = function(data) {
     });
     stateMachine01_base.addState('run',{
         trigger:function(){
-            if(!that.control.left.isDown&&!that.control.right.isDown){                
+            if(!that.controlLeft&&!that.controlRight){                
                 this.setState('idle'); 
             }
-            if(that.control.left.isDown){
+            if(that.controlLeft){
                 that.controlMove(!that.sensorLeftBool?1:0.03);
-            }else if(that.control.right.isDown){
+            }else if(that.controlRight){
                 that.controlMove(!that.sensorRightBool?1:0.03);
             }
         },
@@ -334,9 +358,9 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('jumpBefore',{
         trigger:function(state){
-            if(that.control.left.isDown){
+            if(that.controlLeft){
                 that.controlMove(!that.sensorLeftBool?0.7:0);
-            }else if(that.control.right.isDown){
+            }else if(that.controlRight){
                 that.controlMove(!that.sensorRightBool?0.7:0);
             }
             if(that.player.currentFrame>=player.frameTags[state.id].end){                
@@ -356,9 +380,9 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('jump',{
         trigger:function(state){
-            if(that.control.left.isDown){
+            if(that.controlLeft){
                 that.controlMove(!that.sensorLeftBool?0.1:0);
-            }else if(that.control.right.isDown){
+            }else if(that.controlRight){
                 that.controlMove(!that.sensorRightBool?0.1:0);
             }
             if(that.body.velocity.y>0){
@@ -368,7 +392,7 @@ var componentCharacter = function(data) {
                 this.setState('base');
             }
             //console.log(that.player.currentFrame,player.frameTags[state.id].end);
-            if(!that.control.spacebar.isDown){
+            if(!that.controlJump){
                 var v = that.body.velocity;
                 v.y *= 0.96;
                 Body.setVelocity(that.body, v);         
@@ -384,14 +408,14 @@ var componentCharacter = function(data) {
 
     stateMachine01.addState('fall',{
         trigger:function(){
-            if(that.control.left.isDown){
+            if(that.controlLeft){
                 that.controlMove(!that.sensorLeftBool?0.03:0);
-            }else if(that.control.right.isDown){
+            }else if(that.controlRight){
                 //console.log(that.body.velocity.x,!that.sensorRightBool?0.03:0);
                 that.controlMove(!that.sensorRightBool?0.03:0);
             }
             if(that.sensorFloorBool){
-                if(!that.control.spacebar.isDown){
+                if(!that.controlJump){
                     that.jumpLock = false;
                 }
                 this.setState('base');
@@ -504,18 +528,26 @@ var componentCharacter = function(data) {
         this.body=bodiesMain;
         return this;
     }
-    this.setControl =  function(control){
-        this.control = control;
-    }
     this.beforeUpdate = function(delta){
         this.constructor.prototype.beforeUpdate.call(this,delta);    
         this.stateMachine.stateTrigger();
     }
+    this.setDirection = function(direction){
+        //console.log(direction)
+        if(direction==='left'){
+            this.direction=direction;
+            this.player.scale.set(-Math.abs(this.player.scale.x),this.player.scale.y);
+        }else if(direction==='right'){
+            this.direction=direction;
+            this.player.scale.set(Math.abs(this.player.scale.x),this.player.scale.y);
+        }
+        return this;
+    }
     this.controlMove = function(s){
-        if(this.control.left.isDown){
+        if(this.controlLeft){
             if(this.direction!=='left'){
                 this.direction='left';
-                this.player.scale.set(-Math.abs(this.player.scale.x),this.player.scale.y);
+                this.setDirection(this.direction);
             }else if(!this.sensorLeftBool){
                 var v = this.body.velocity;
                 if(v.x<-8){
@@ -528,10 +560,10 @@ var componentCharacter = function(data) {
                 Body.applyForce(this.body,this.body.position, {x: -s*f, y: 0});        
             }                      
         }
-        if(this.control.right.isDown){
+        if(this.controlRight){
             if(this.direction!=='right'){
                 this.direction='right';
-                this.player.scale.set(Math.abs(this.player.scale.x),this.player.scale.y);
+                this.setDirection(this.direction);
             }else if(!this.sensorRightBool){
                 var v = this.body.velocity;
                 if(v.x<-8){
@@ -546,4 +578,5 @@ var componentCharacter = function(data) {
         }
     }
 }
-extend(componentCharacter, PIXI.Container);
+extend(PIXI.componentCharacter, PIXI.Container);
+})();

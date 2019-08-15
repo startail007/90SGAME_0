@@ -12,6 +12,7 @@
     <script src="js/pixi-expansion.js"></script>
     <script src="js/pixi-particles.js"></script>
     <script src="js/matter.min.js"></script>
+    <script src="js/matter-expansion.js"></script>
     <link href="css/style.css" rel="stylesheet">
     <script>
         var Engine=Matter.Engine,
@@ -42,22 +43,8 @@
             game_stage.addChild(game_bgView);
             var game_view = new PIXI.Container();
             game_stage.addChild(game_view);
-
-            app.loader.add('emitter01', 'js/emitter01.json');
-            app.loader.add('map', 'js/map.json');
-            app.loader.add('circle01', 'img/circle01.png');
-            app.loader.add('player', 'img/player.json');
-            app.loader.add('bg01', 'img/bg01.png');
-            app.loader.add('bg02', 'img/bg02.png');
-            app.loader.add('floor02', 'img/floor02.png');
-            app.loader.add('floor01', 'img/floor01.png');
-            app.loader.on("progress", function(loader){
-                //console.log(loader.progress,"loading"); 
-            });            
-            app.loader.load(function(loader, resources){
-                //texture = resources.flowerTop.texture;
-                init(loader, resources);
-            });
+            var game_ui = new PIXI.Container();
+            game_stage.addChild(game_ui);
 
             Engine.collision = {
                 collisionStart:[],
@@ -75,15 +62,13 @@
                     trigger:trigger
                 });
             }
-            //console.log(Matter)
+
             var engine=Engine.create(),
                 world=engine.world;
 
-                //console.log(engine);
-
             var render=Render.create({
                     engine:engine,
-                    //element:document.body,
+                    element:document.body,
                     options: {
                         width: sw,
                         height: sh
@@ -91,28 +76,192 @@
                });
             Engine.run(engine);
             Render.run(render);
+            var resetList = [];
+
+            function createBox(texture, option){
+                option = Object.assign({
+                    x: 0,
+                    y: 0,
+                    width: 50,
+                    height: 50,
+                    bound: undefined,
+                    textureScale:0.5,
+                    angle:0
+                },option);
+                var item = new PIXI.TilingSprite(
+                    texture,
+                    option.width,
+                    option.height,
+                );
+                item.tileScale.x = option.textureScale;
+                item.tileScale.y = option.textureScale;
+                item.anchor.set(0.5);
+                item.createBody("rect",{
+                    isStatic:true,
+                    friction: 0.3,
+                    frictionStatic:0.9,
+                    restitution:0,
+                },option.bound);
+                var tx = (option.bound?option.bound.left:0);
+                var ty = (option.bound?option.bound.top:0);
+                item.translate(option.x + item.pivot.x,option.y + item.pivot.y);
+                item.rotate(option.angle, {x:option.x,y:option.y});
+                return item;
+            }
+
+            function createCircle(texture, option, emitter){
+                option = Object.assign({
+                    x: 0,
+                    y: 0,
+                    radius: 50
+                },option);
+
+                var item = new PIXI.Sprite(texture);
+                item.width = option.radius*2;
+                item.height = option.radius*2;
+                item.anchor.set(0.5);
+                item.createBody("circle",{
+                    data:{
+                        el:item,
+                        collision:function(){
+                            if(item.visible){
+                                item.visible = false;
+                                //console.log(item.position)
+                                emitter.ownerPos.set(item.position.x,item.position.y);
+                                emitter.emit = true; 
+                                /*item.removeBodyfrom(world);
+                                item.parent.removeChild(item);*/
+                            }                                
+                        }
+                    },
+                    isSensor:true,
+                    isStatic:true,
+                    collisionGroup:1
+                });
+                item.translate(option.x,option.y);
+                resetList.push({
+                    src:item,
+                    trigger:function(){
+                        if(!item.visible){
+                            item.visible = true;
+                        }
+                    }
+                });
+                return item;
+            }
+
+            function createMoveFloor(texture, itemData){
+                var item = createBox(texture,{
+                    x:itemData.x,
+                    y:itemData.y,
+                    width:itemData.width,
+                    height:66,
+                    angle:itemData.angle,
+                    textureScale:1,
+                    bound:{left:0,right:0,top:20,bottom:0}
+                });
+                var xx = itemData.end.x - itemData.start.x;
+                var yy = itemData.end.y - itemData.start.y;
+                var len = Math.sqrt(xx*xx + yy*yy);
+                var duration = len*4000/240;
+                var time = Math.random()*duration;
+                var animation = item.addAnimation("move",duration,true,function(rate,data,src){
+                    var temp = EasingFunctions.easeInOutCubic(1-Math.abs(rate-0.5)*2);
+                    var x = itemData.start.x + xx*temp;
+                    var y = itemData.start.y + yy*temp;
+                    var vx = x - src.body.position.x;
+                    var vy = y - src.body.position.y;
+                    src.move(vx,vy);
+                });
+                animation.setTime(time);
+                resetList.push({
+                    src:item,
+                    trigger:function(){
+                        animation.setTime(time);
+                    }
+                });
+                return item;
+            }
+
+            /*控制*/
+            var control = {
+                left:keyboard(37),
+                right:keyboard(39),
+                spacebar:keyboard(32),
+                cameraUp:keyboard(87),
+                cameraDown:keyboard(83),
+                reset:keyboard(90),
+            }
+
+            /*鏡頭*/
+            var camera = {
+                x:0,
+                y:0
+            }
+            var cameraT = {
+                x:0,
+                y:600
+            }
 
 
+            /*資源載入*/
+            var loaded = false;
+            app.loader.add('emitter01', 'js/emitter01.json');
+            app.loader.add('map', 'js/map.json');
+            app.loader.add('circle01', 'img/circle01.png');
+            app.loader.add('player', 'img/player.json');
+            app.loader.add('bg01', 'img/bg01.png');
+            app.loader.add('bg02', 'img/bg02.png');
+            app.loader.add('floor02', 'img/floor02.png');
+            app.loader.add('floor01', 'img/floor01.png');
+            app.loader.on("progress", function(loader){
+                //console.log(loader.progress,"loading"); 
+            });            
+            app.loader.load(function(loader, resources){
+                //texture = resources.flowerTop.texture;
+                if(!loaded){
+                    loaded = true;
+                    init(loader, resources);
+                }
+            });
 
-            function init(loader, resources){
-                //console.log(resources.map)
-                /*控制*/
-                var control = {
-                    left:keyboard(37),
-                    right:keyboard(39),
-                    spacebar:keyboard(32),
-                    cameraUp:keyboard(87),
-                    cameraDown:keyboard(83),
-                }
-                /*鏡頭*/
-                var camera = {
-                    x:0,
-                    y:0
-                }
-                var cameraT = {
-                    x:0,
-                    y:600
-                }
+            function init(loader, resources){                
+                /*碰撞偵測*/
+                Events.on(engine, 'collisionStart', function(event) {
+                    var pairs = event.pairs;
+                    for(var key in pairs){
+                        var pair = pairs[key];
+                        Engine.collision.collisionStart.forEach(function(el){
+                            if(pair.bodyA.collisionGroup===pair.bodyB.collisionGroup){
+                                if(pair.bodyA.id===el.body.id){
+                                    el.trigger(pair.bodyB);
+                                }else if(pair.bodyB.id===el.body.id){
+                                    el.trigger(pair.bodyA);
+                                }
+                            }
+                        });                   
+                    }
+                }); 
+                Events.on(engine, 'collisionEnd', function(event) {
+                    var pairs = event.pairs;
+                    for(var key in pairs){
+                        var pair = pairs[key];
+                        Engine.collision.collisionEnd.forEach(function(el){
+                            if(pair.bodyA.collisionGroup===pair.bodyB.collisionGroup){
+                                if(pair.bodyA.id===el.body.id){
+                                    el.trigger(pair.bodyB);
+                                }else if(pair.bodyB.id===el.body.id){
+                                    el.trigger(pair.bodyA);
+                                }
+                            }
+                        });                                                         
+                    }
+                });                
+                /*測試*/
+                control.reset.press.push(function(){
+                    reset(loader, resources);
+                });
+                
                 /*圖層*/
                 var bg_layer = new PIXI.Container();
                 game_bgView.addChild(bg_layer);
@@ -129,207 +278,42 @@
                 var particles_layer = new PIXI.Container();
                 game_view.addChild(particles_layer);
 
-                /*背景*/
-                /*var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width, app.screen.height);                
-                floor_layer.addChild(bg01);*/
+                var ui_layer = new PIXI.Container();
+                game_ui.addChild(ui_layer);
 
-                /*var bg02 = new PIXI.TilingSprite(resources.bg02.texture, app.screen.width*10, 1200);                
-                floor_layer.addChild(bg02);
-                var s = 1200/600;
+                /*文字*/
+                var Text01 = new PIXI.Text('', {
+                    fontFamily: 'Arial',
+                    fontSize: '22px',
+                    fontWeight: 'bold',
+                    fill: '#FFFFFF',
+                    align: 'left',
+                    stroke: '#cc00ff',
+                    strokeThickness: 1
+                });
+                Text01.position.set(10, 10);
+                ui_layer.addChild(Text01);
+
+                /*背景*/
+                var bg02 = new PIXI.TilingSprite(resources.bg02.texture, app.screen.width*10, 600);                
+                bg_layer.addChild(bg02);
+                var s = 600/600;
                 bg02.tileScale.x = bg02.tileScale.y = s;
 
-                var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width*10, 1200);                
-                floor_layer.addChild(bg01);
-                var s = 1200/600;
-                bg01.tileScale.x = bg01.tileScale.y = s;*/
+                var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width*10, 600);                
+                bg_layer.addChild(bg01);
+                var s = 600/600;
+                bg01.tileScale.x = bg01.tileScale.y = s;
 
-                function createBox(texture, option){
-                    option = Object.assign({
-                        x: 0,
-                        y: 0,
-                        width: 50,
-                        height: 50,
-                        bound: undefined,
-                        textureScale:0.5,
-                        angle:0
-                    },option);
-                    //texture.wrapMode = PIXI.WRAP_MODES.REPEAT;
-                    //var floor0001 = new PIXI.Sprite(texture);
-                    var floor0001 = new PIXI.TilingSprite(
-                        texture,
-                        option.width,
-                        option.height,
-                    );
-                    floor0001.tileScale.x = option.textureScale;
-                    floor0001.tileScale.y = option.textureScale;
-                    /*floor0001.tilePosition.x += 1;
-                    floor0001.tilePosition.y += 1;*/
-                    floor0001.position.x = option.width*0.5;                    
-                    floor0001.position.y = option.height*0.5;
-                    floor0001.anchor.set(0.5);
-                    floor0001.createBody("rect",{
-                        isStatic:true,
-                        friction: 1,
-                        frictionStatic:1,
-                        restitution:0
-                    },option.bound);
-                    var tx = (option.bound?option.bound.left:0);
-                    var ty = (option.bound?option.bound.top:0);
-                    floor0001.translate(option.x - tx + floor0001.pivot.x,option.y - ty + floor0001.pivot.y);
-                    floor0001.rotate(option.angle, {x:option.x,y:option.y});
-                    return floor0001;
-                }
-                function createCircle(texture, option){
-                    option = Object.assign({
-                        x: 0,
-                        y: 0,
-                        radius: 50
-                    },option);
+                /*粒子系統*/
+                var emitter = new PIXI.particles.Emitter(
+                    particles_layer,
+                    [resources.circle01.texture],
+                    resources.emitter01.data
+                );
+                emitter.emit = false; 
 
-                    var floor0001 = new PIXI.Sprite(texture);
-                    floor0001.width = option.radius*2;
-                    floor0001.height = option.radius*2;
-                    floor0001.anchor.set(0.5);
-                    floor0001.createBody("circle",{
-                        isSensor:true,
-                        isStatic:true
-                    });
-                    floor0001.translate(option.x,option.y);
-                    return floor0001;
-                }
-
-                
-
-                function createLenBox(texture, data, option){
-                    option = Object.assign({
-                        x:0,
-                        y:0,
-                        height: 50,
-                        bound: undefined,
-                        textureScale:0.5
-                    },option);
-                    var pp = data;
-                    var floors = [];
-                    var ttt = 0;
-                    for(var i=0;i<pp.length-1;i++){
-                        var pp0 = pp[i];
-                        var pp1 = pp[i+1];
-                        var xx = pp1.x - pp0.x;
-                        var yy = pp1.y - pp0.y;
-                        var length = Math.sqrt(xx*xx+yy*yy);
-                        var angle = Math.atan2(yy, xx);
-                        var obj = Object.assign({},option);
-                        obj = Object.assign(obj,{
-                            x:option.x + pp0.x,
-                            y:option.y + pp0.y,
-                            width:length,
-                            angle:angle
-                        });
-                        //console.log(pp0.x,option.y)
-                        var floor_1 = createBox(texture,obj);
-                        floor_1.tilePosition.x = ttt;
-                        ttt+=length;
-                        floors.push(floor_1);
-
-                        
-                    }
-
-                    for(var i=0;i<pp.length-1;i++){
-                        var pp0 = pp[i];
-                        var pp1 = pp[i+1];
-                        for(var j=0;j<4;j++){
-                            var circle0001 = createCircle(resources.circle01.texture,{
-                                x:option.x + pp0.x+(pp1.x-pp0.x)*j/4,
-                                y:option.y + pp0.y+(pp1.y-pp0.y)*j/4-30,
-                                radius:15
-                            });
-                            res_layer.addChild(circle0001);
-                            circle0001.addBodyfrom(world).update();
-                        }
-                    }
-                    return floors;
-                }
-                /*var floors = createLenBox(resources.floor02.texture,[
-                    {x:0,y:0},
-                    {x:200,y:-50},
-                    {x:400,y:-50},
-                    {x:600,y:0}
-                ],{
-                    x:0,
-                    y:530,
-                    height:66,
-                    textureScale:1,
-                    bound:{left:0,right:0,top:20,bottom:0}
-                }).forEach(function(el){
-                    floor_layer.addChild(el);
-                    el.addBodyfrom(world).update();
-                });*/
-
-                
-                function createBox01(texture, option){
-                    option = Object.assign({
-                        x: 0,
-                        y: 0,
-                        width: 50,
-                        height: 50,
-                        bound: undefined,
-                        textureScale:0.5,
-                        angle:0
-                    },option);
-                    var item = new PIXI.TilingSprite(
-                        texture,
-                        option.width,
-                        option.height,
-                    );
-                    item.tileScale.x = option.textureScale;
-                    item.tileScale.y = option.textureScale;
-                    item.anchor.set(0.5);
-                    item.createBody("rect",{
-                        isStatic:true,
-                        friction: 1,
-                        frictionStatic:1,
-                        restitution:0,
-                    },option.bound);
-                    var tx = (option.bound?option.bound.left:0);
-                    var ty = (option.bound?option.bound.top:0);
-                    item.translate(option.x + item.pivot.x,option.y + item.pivot.y);
-                    item.rotate(option.angle, {x:option.x,y:option.y});
-                    return item;
-                }
-
-                function createCircle01(texture, option){
-                    option = Object.assign({
-                        x: 0,
-                        y: 0,
-                        radius: 50
-                    },option);
-
-                    var item = new PIXI.Sprite(texture);
-                    item.width = option.radius*2;
-                    item.height = option.radius*2;
-                    item.anchor.set(0.5);
-                    item.createBody("circle",{
-                        data:{
-                            el:item,
-                            collision:function(){
-                                //if(item.visible){
-                                    //item.visible = false;
-                                    //console.log(item.position)
-                                    emitter.ownerPos.set(item.position.x,item.position.y);
-                                    emitter.emit = true; 
-                                    item.removeBodyfrom(world);
-                                    item.parent.removeChild(item);
-                                //}                                
-                            }
-                        },
-                        isSensor:true,
-                        isStatic:true,
-                        collisionGroup:1
-                    });
-                    item.translate(option.x,option.y);
-                    return item;
-                }
-
+                /*場景產生*/
                 var map = resources.map.data;
                 var flag = map.flag;
                 var floors = map.floor;
@@ -337,7 +321,7 @@
                 var moveFloor = map.moveFloor;
                 for(var key in floors){
                     var itemData = floors[key];
-                    var item = createBox01(resources.floor02.texture,{
+                    var item = createBox(resources.floor02.texture,{
                         x:itemData.x,
                         y:itemData.y,
                         width:itemData.width,
@@ -351,84 +335,23 @@
                 }
                 for(var key in props){
                     var itemData = props[key];
-                    var item = createCircle01(resources.circle01.texture,{
+                    var item = createCircle(resources.circle01.texture,{
                         x:itemData.x,
                         y:itemData.y,
                         radius:itemData.width*0.5,
                         textureScale:1
-                    });
+                    },emitter);
                     prop_layer.addChild(item);
                     item.addBodyfrom(world).update();
                 }
                 for(var key in moveFloor){
                     var itemData = moveFloor[key];
-                    createMoveFloor(itemData);
-                }
-
-                function createMoveFloor(itemData){
-                    var item = createBox01(resources.floor02.texture,{
-                        x:itemData.x,
-                        y:itemData.y,
-                        width:itemData.width,
-                        height:66,
-                        angle:itemData.angle,
-                        textureScale:1,
-                        bound:{left:0,right:0,top:20,bottom:0}
-                    });
+                    var item = createMoveFloor(resources.floor02.texture,itemData);
                     floor_layer.addChild(item);
                     item.addBodyfrom(world).update();
-                    var xx = itemData.end.x - itemData.start.x;
-                    var yy = itemData.end.y - itemData.start.y;
-                    var len = Math.sqrt(xx*xx + yy*yy);
-                    var duration = len*4000/240;
-                    //console.log(duration);
-                    item.addAnimation("move",duration,true,function(rate,data,src){
-                        var temp = EasingFunctions.easeInOutCubic(1-Math.abs(rate-0.5)*2);
-                        var x = itemData.start.x + xx*temp;
-                        var y = itemData.start.y + yy*temp;
-                        var vx = x - src.body.position.x;
-                        var vy = y - src.body.position.y;
-                        src.move(vx,vy);
-                    }).setTime(Math.random()*duration).play();
-                    return item;
+                    item.animationPlay("move");
                 }
-
-
-                
-
-                /*var floor_001 = createBox01(resources.floor01.texture,{
-                    x:40,
-                    y:480,
-                    width:150,
-                    height:50,
-                    textureScale:0.5
-                });
-                floor_layer.addChild(floor_001);
-                floor_001.addBodyfrom(world).update();
-                floor_001.addAnimation("move",4000,true,function(delta,rate,data,src){
-                    var temp = EasingFunctions.easeInOutQuart(1-Math.abs(rate-0.5)*2);
-                    var x = 40 + (240-40)*temp;
-                    var vx = x - src.body.position.x;
-                    src.move(vx,0);
-                }).play();
-
-                var floor_002 = createBox01(resources.floor01.texture,{
-                    x:600,
-                    y:100,
-                    width:150,
-                    height:50,
-                    textureScale:0.5
-                });
-                floor_layer.addChild(floor_002);
-                floor_002.addBodyfrom(world).update();
-                floor_002.addAnimation("move",8000,true,function(delta,rate,data,src){
-                    var temp = EasingFunctions.easeInOutQuart(1-Math.abs(rate-0.5)*2);
-                    var y = 100 + (540-100)*temp;
-                    var vy = y - src.body.position.y;
-                    src.move(0,vy);
-                }).play();*/
-
-                var floor_003 = createBox01(resources.floor01.texture,{
+                var floor_003 = createBox(resources.floor01.texture,{
                     x:25,
                     y:300,
                     width:50,
@@ -438,20 +361,12 @@
                 floor_layer.addChild(floor_003);
                 floor_003.addBodyfrom(world).update();
 
-                var emitter = new PIXI.particles.Emitter(
-                    particles_layer,
-                    [resources.circle01.texture],
-                    resources.emitter01.data
-                );
-
-                emitter.emit = false; 
-
-
+                /*腳色產生*/
                 var playerTextures = [];
                 for (var temp in resources.player.textures) {
                     playerTextures.push(resources.player.textures[temp]);
                 }    
-                var character01 = new componentCharacter(playerTextures);
+                var character01 = new PIXI.componentCharacter(playerTextures);
                 container_layer.addChild(character01);
                 var s = 0.6;
                 character01.createBody({
@@ -462,75 +377,112 @@
                     footDistance: 20*s
                 });
                 character01.addBodyfrom(world).translate(flag.x,flag.y).update();
-                character01.setControl(control);
-                
-                updateView();
 
-                Events.on(engine, 'collisionStart', function(event) {
-                    var pairs = event.pairs;
-                    for(var key in pairs){
-                        var pair = pairs[key];
-                        Engine.collision.collisionStart.forEach(function(el){
-                            if(pair.bodyA.collisionGroup===pair.bodyB.collisionGroup){
-                                if(pair.bodyA.id===el.body.id){
-                                    el.trigger(pair.bodyB);
-                                }else if(pair.bodyB.id===el.body.id){
-                                    el.trigger(pair.bodyA);
-                                }
-                            }
-                        });
-                        //character01.onCollisionStart(pair);                        
-                    }
+                /*腳色控制*/
+                control.left.press.push(function(){
+                    character01.controlLeft = true;
                 }); 
-                Events.on(engine, 'collisionEnd', function(event) {
-                    var pairs = event.pairs;
-                    for(var key in pairs){
-                        var pair = pairs[key];
-                        Engine.collision.collisionEnd.forEach(function(el){
-                            if(pair.bodyA.collisionGroup===pair.bodyB.collisionGroup){
-                                if(pair.bodyA.id===el.body.id){
-                                    el.trigger(pair.bodyB);
-                                }else if(pair.bodyB.id===el.body.id){
-                                    el.trigger(pair.bodyA);
-                                }
-                            }
-                        });                                             
-                        //character01.onCollisionEnd(pair);                        
-                    }
+                control.left.release.push(function(){
+                    character01.controlLeft = false;
+                }); 
+                control.right.press.push(function(){
+                    character01.controlRight = true;
+                }); 
+                control.right.release.push(function(){
+                    character01.controlRight = false;
                 });
-                   
+                control.spacebar.press.push(function(){
+                    character01.controlJump = true;
+                }); 
+                control.spacebar.release.push(function(){
+                    character01.controlJump = false;
+                });  
+                var leftBox = Bodies.rectangle(0,0,40,app.screen.height+400,{
+                    friction: 0,
+                    frictionStatic: 0,
+                    frictionAir: 0,
+                    isStatic:true,
+                    restitution:0,
+                    collisionGroup:1,
+                    data:{
+                        el:null,
+                        collision:function(){
+                            reset(loader, resources);
+                        }
+                    }
+                },false);
 
+                var rightBox = Bodies.rectangle(0,0,40,app.screen.height+400,{
+                    friction: 0,
+                    frictionStatic: 0,
+                    frictionAir: 0,
+                    isStatic:true,
+                    restitution:0,                    
+                },false);
+
+                var bottomBox = Bodies.rectangle(0,0,app.screen.width+400,100,{
+                    friction: 0,
+                    frictionStatic: 0,
+                    frictionAir: 0,
+                    isSensor:true,
+                    isStatic:true,
+                    restitution:0,
+                    collisionGroup:1,
+                    data:{
+                        el:null,
+                        collision:function(){
+                            reset(loader, resources);
+                        }
+                    }
+                },false);
+
+                updateView();
+                updateOutWall();
+                World.add(world,leftBox);
+                World.add(world,rightBox);
+                World.add(world,bottomBox);
+
+                function updateOutWall(){                    
+                    Body.setPosition(leftBox, {x:camera.x-app.screen.width*0.5-20-40,y:app.screen.height*0.5});
+                    Body.setPosition(rightBox, {x:camera.x+app.screen.width*0.5+20+10,y:app.screen.height*0.5});
+                    Body.setPosition(bottomBox, {x:camera.x,y:camera.y+app.screen.height*0.5+200});
+                }
+                
+
+                /*更新*/      
+
+                var maxTime = 90;
                 var timestamp = engine.timing.timestamp;
-                var a1 = 0;
+                var time = 0;
+                Text01.text = Math.ceil(maxTime-time/1000);
                 Events.on(engine, 'beforeUpdate', function(event) {
                     delta = event.timestamp - timestamp;
                     timestamp = event.timestamp;
-                    emitter.update(delta*0.001);
-                    if(a1<1){                        
-                        a1+=delta/(90*1000);
-                        a1 = Math.min(a1,1);
-                    }
-                    //cameraT.x=app.screen.width*0.5 + a1*(14000-app.screen.width);                    
+
+
+                    //Body.setPosition(leftBox, {x:80+150,y:400+20});
+
+                    emitter.update(delta*0.001);                       
+                    time+=delta;
+                    var rate = Math.min(time/(maxTime*1000),1);
+                    cameraT.x=app.screen.width*0.5 + rate*(14000-app.screen.width);                    
                     PIXI.beforeUpdateList.forEach(function(el){
                         el.beforeUpdate(delta);
                     });
                     updateView(); 
+                    updateOutWall();
                 });
 
-                Events.on(engine, 'afterUpdate', function(event) {
-                });
+                /*Events.on(engine, 'afterUpdate', function(event) {
+                });*/
 
                 function updateView(){
-                    /*if(control.cameraUp.isDown){
-                        cameraT.y-=40;
-                    }
-                    if(control.cameraDown.isDown){                        
-                        cameraT.y+=40;
-                    }*/
-                    camera.x = Common.clamp(character01.body.position.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
-                    //camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
+
+                    
+                    //cameraT.x = character01.body.position.x;
+                    camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
                     camera.y = Common.clamp(character01.body.position.y,app.screen.height*0.5,600-app.screen.height*0.5);
-                    //camera.y = Common.clamp(/*character01.body.position.y + */cameraT.y,app.screen.height*0.5,600-app.screen.height*0.5);
+
                     var xx = -camera.x + app.screen.width*0.5;
                     var yy = -camera.y + app.screen.height*0.5;
                     game_view.position.x = xx;
@@ -546,15 +498,26 @@
                         }
                     });
                 }    
-                //console.log(app.stage,app)
-                app.ticker.add(function(delta){    
-                    /*bg01.tilePosition.x = (camera.x - app.screen.width*0.5)*0.2;
-                    bg02.tilePosition.x = (camera.x - app.screen.width*0.5)*0.4;*/
+                app.ticker.add(function(delta){
+                    Text01.text = Math.ceil(maxTime-time/1000);    
+                    bg01.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.4;
+                    bg02.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.2;
                     PIXI.updateList.forEach(function(el){
                         el.update();
                     });
                 });
                 app.start();
+
+                function reset(loader, resources){                    
+                    time = 0;
+                    Text01.text = Math.ceil(maxTime-time/1000);
+                    emitter.emit = false;
+                    character01.setPosition(flag.x,flag.y).update().setDirection("right"); 
+                    resetList.forEach(function(el){
+                        el.trigger();
+                    });                    
+                    updateView(); 
+                }
 
                 
 
