@@ -23,9 +23,13 @@
             Body = Matter.Body;
             Composite = Matter.Composite,
             Bounds = Matter.Bounds,
-            Common = Matter.Common; 
+            Common = Matter.Common,
+            Runner = Matter.Runner; 
 
         window.onload = function(){
+
+            var gamePlay = false;
+            var gamePage = "";//start//stage
 
             var sw = Common.clamp(window.innerWidth,800,800);
             var sh = Common.clamp(window.innerHeight,600,600);
@@ -37,14 +41,20 @@
             });
             document.body.appendChild(app.view);
 
+             
+
             var game_stage = new PIXI.Container();
             app.stage.addChild(game_stage);
-            var game_bgView = new PIXI.Container();
-            game_stage.addChild(game_bgView);
-            var game_view = new PIXI.Container();
-            game_stage.addChild(game_view);
-            var game_ui = new PIXI.Container();
-            game_stage.addChild(game_ui);
+            game_stage.visible = false;
+
+            var game_start = new PIXI.Container();
+            app.stage.addChild(game_start);
+            game_start.visible = false; 
+
+            var pages = {
+                start:game_start,
+                stage:game_stage,
+            }
 
             Engine.collision = {
                 collisionStart:[],
@@ -74,11 +84,13 @@
                         height: sh
                     }
                });
-            Engine.run(engine);
+            //var runner = Engine.run(engine);
+            var runner = Runner.create(engine);
             Render.run(render);
+
             var resetList = [];
 
-            function createBox(texture, option){
+            function createRect(texture, option){
                 option = Object.assign({
                     x: 0,
                     y: 0,
@@ -106,6 +118,42 @@
                 var ty = (option.bound?option.bound.top:0);
                 item.translate(option.x + item.pivot.x,option.y + item.pivot.y);
                 item.rotate(option.angle, {x:option.x,y:option.y});
+                return item;
+            }
+
+            function createRectWall(texture, option){
+                option = Object.assign({
+                    x: 0,
+                    y: 0,
+                    width: 50,
+                    height: 50,
+                    bound: undefined,
+                    textureScale:0.5,
+                    angle:0
+                },option);
+                var item0 = new PIXI.TilingSprite(
+                    texture,
+                    option.width,
+                    option.height,
+                );
+                item0.tileScale.x = option.textureScale;
+                item0.tileScale.y = option.textureScale;
+                item0.anchor.set(0.5);
+
+
+                var item = new PIXI.Container();
+                item.addChild(item0);
+                item.createBody("rect",{
+                    isStatic:true,
+                    friction: 0.3,
+                    frictionStatic:0.9,
+                    restitution:0,
+                },option.bound);
+                var tx = (option.bound?option.bound.left:0);
+                var ty = (option.bound?option.bound.top:0);
+                item.translate(option.x + item.pivot.x,option.y + item.pivot.y);
+                item.rotate(option.angle, {x:option.x,y:option.y});
+
                 return item;
             }
 
@@ -151,7 +199,7 @@
             }
 
             function createMoveFloor(texture, itemData){
-                var item = createBox(texture,{
+                var item = createRect(texture,{
                     x:itemData.x,
                     y:itemData.y,
                     width:itemData.width,
@@ -212,20 +260,64 @@
             app.loader.add('player', 'img/player.json');
             app.loader.add('bg01', 'img/bg01.png');
             app.loader.add('bg02', 'img/bg02.png');
+            app.loader.add('bg03', 'img/bg03.png');
+            app.loader.add('bg04', 'img/bg04.png');
+            app.loader.add('bg05', 'img/bg05.png');
             app.loader.add('floor02', 'img/floor02.png');
             app.loader.add('floor01', 'img/floor01.png');
+            app.loader.add('gameStart', 'img/gameStart.png');
             app.loader.on("progress", function(loader){
-                //console.log(loader.progress,"loading"); 
+                console.log(loader.progress,"loading"); 
             });            
             app.loader.load(function(loader, resources){
                 //texture = resources.flowerTop.texture;
                 if(!loaded){
                     loaded = true;
+                    pageChange("start");
                     init(loader, resources);
                 }
             });
 
-            function init(loader, resources){                
+            function init(loader, resources){
+                /*遊戲開始畫面*/
+                initStart(loader, resources);                
+
+                /*遊戲場景相關*/  
+                initStage(loader, resources);
+            }
+            function pageChange(page){
+                if(gamePage!==page){                    
+                    if(gamePage==="stage"){
+                        Runner.stop(runner);
+                        gamePlay = false;
+                    }
+                    if(pages[gamePage]){
+                        pages[gamePage].visible = false;
+                    }
+                    gamePage = page;
+                    if(gamePage==="stage"){
+                        Runner.run(runner);
+                        gamePlay = true;
+                    }
+                    if(pages[gamePage]){
+                        pages[gamePage].visible = true;
+                    }
+                }
+            }
+
+            function initStart(loader, resources){
+                /*圖層*/
+                var gameStartUI = new PIXI.Sprite(resources.gameStart.texture);
+                game_start.addChild(gameStartUI);
+
+                control.spacebar.release.push(function(){
+                    if(gamePage==="start"){
+                        pageChange("stage");
+                    }
+                });
+            }
+
+            function initStage(loader, resources){
                 /*碰撞偵測*/
                 Events.on(engine, 'collisionStart', function(event) {
                     var pairs = event.pairs;
@@ -263,6 +355,14 @@
                 });
                 
                 /*圖層*/
+
+                var game_bgView = new PIXI.Container();
+                game_stage.addChild(game_bgView);
+                var game_view = new PIXI.Container();
+                game_stage.addChild(game_view);
+                var game_ui = new PIXI.Container();
+                game_stage.addChild(game_ui);
+
                 var bg_layer = new PIXI.Container();
                 game_bgView.addChild(bg_layer);
 
@@ -294,16 +394,17 @@
                 Text01.position.set(10, 10);
                 ui_layer.addChild(Text01);
 
-                /*背景*/
-                var bg02 = new PIXI.TilingSprite(resources.bg02.texture, app.screen.width*10, 600);                
+                /*背景*/                
+                var bg05 = new PIXI.TilingSprite(resources.bg05.texture, app.screen.width, app.screen.height);                
+                bg_layer.addChild(bg05);
+                var bg04 = new PIXI.TilingSprite(resources.bg04.texture, app.screen.width, app.screen.height);                
+                bg_layer.addChild(bg04);
+                var bg03 = new PIXI.TilingSprite(resources.bg03.texture, app.screen.width, app.screen.height);                
+                bg_layer.addChild(bg03);
+                var bg02 = new PIXI.TilingSprite(resources.bg02.texture, app.screen.width, app.screen.height);                
                 bg_layer.addChild(bg02);
-                var s = 600/600;
-                bg02.tileScale.x = bg02.tileScale.y = s;
-
-                var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width*10, 600);                
+                var bg01 = new PIXI.TilingSprite(resources.bg01.texture, app.screen.width, app.screen.height);                
                 bg_layer.addChild(bg01);
-                var s = 600/600;
-                bg01.tileScale.x = bg01.tileScale.y = s;
 
                 /*粒子系統*/
                 var emitter = new PIXI.particles.Emitter(
@@ -321,7 +422,7 @@
                 var moveFloor = map.moveFloor;
                 for(var key in floors){
                     var itemData = floors[key];
-                    var item = createBox(resources.floor02.texture,{
+                    var item = createRect(resources.floor02.texture,{
                         x:itemData.x,
                         y:itemData.y,
                         width:itemData.width,
@@ -351,7 +452,7 @@
                     item.addBodyfrom(world).update();
                     item.animationPlay("move");
                 }
-                var floor_003 = createBox(resources.floor01.texture,{
+                /*var floor_003 = createRect(resources.floor01.texture,{
                     x:25,
                     y:300,
                     width:50,
@@ -359,7 +460,7 @@
                     textureScale:0.5
                 });
                 floor_layer.addChild(floor_003);
-                floor_003.addBodyfrom(world).update();
+                floor_003.addBodyfrom(world).update();*/
 
                 /*腳色產生*/
                 var playerTextures = [];
@@ -379,24 +480,34 @@
                 character01.addBodyfrom(world).translate(flag.x,flag.y).update();
 
                 /*腳色控制*/
-                control.left.press.push(function(){
-                    character01.controlLeft = true;
-                }); 
-                control.left.release.push(function(){
-                    character01.controlLeft = false;
-                }); 
-                control.right.press.push(function(){
-                    character01.controlRight = true;
-                }); 
-                control.right.release.push(function(){
-                    character01.controlRight = false;
+                function addControl(key, fun){
+                    key.press.push(function(){
+                        if(gamePage==="stage"&&gamePlay){
+                            fun(true);                    
+                        }
+                    }); 
+                    key.release.push(function(){
+                        if(gamePage==="stage"&&gamePlay){
+                            fun(false);
+                        }
+                    });
+                }
+
+                addControl(control.left,function(bool){
+                    character01.controlLeft = bool;
                 });
-                control.spacebar.press.push(function(){
-                    character01.controlJump = true;
-                }); 
-                control.spacebar.release.push(function(){
-                    character01.controlJump = false;
-                });  
+                addControl(control.right,function(bool){
+                    character01.controlRight = bool;
+                });
+                addControl(control.spacebar,function(bool){
+                    character01.controlJump = bool;
+                });
+
+
+
+                
+
+                /*外框牆壁*/
                 var leftBox = Bodies.rectangle(0,0,40,app.screen.height+400,{
                     friction: 0,
                     frictionStatic: 0,
@@ -449,8 +560,7 @@
                 }
                 
 
-                /*更新*/      
-
+                /*更新*/ 
                 var maxTime = 90;
                 var timestamp = engine.timing.timestamp;
                 var time = 0;
@@ -461,26 +571,25 @@
 
 
                     //Body.setPosition(leftBox, {x:80+150,y:400+20});
-
-                    emitter.update(delta*0.001);                       
-                    time+=delta;
-                    var rate = Math.min(time/(maxTime*1000),1);
-                    cameraT.x=app.screen.width*0.5 + rate*(14000-app.screen.width);                    
-                    PIXI.beforeUpdateList.forEach(function(el){
-                        el.beforeUpdate(delta);
-                    });
-                    updateView(); 
-                    updateOutWall();
+                    if(gamePage==="stage"&&gamePlay){
+                        emitter.update(delta*0.001);                       
+                        time+=delta;
+                        var rate = Math.min(time/(maxTime*1000),1);
+                        cameraT.x=app.screen.width*0.5 + rate*(11300-app.screen.width);                    
+                        PIXI.beforeUpdateList.forEach(function(el){
+                            el.beforeUpdate(delta);
+                        });
+                        updateView(); 
+                        updateOutWall();
+                    }                    
                 });
 
                 /*Events.on(engine, 'afterUpdate', function(event) {
                 });*/
 
-                function updateView(){
-
-                    
+                function updateView(){                    
                     //cameraT.x = character01.body.position.x;
-                    camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,14000 - app.screen.width*0.5);
+                    camera.x = Common.clamp(cameraT.x,app.screen.width*0.5,11300 - app.screen.width*0.5);
                     camera.y = Common.clamp(character01.body.position.y,app.screen.height*0.5,600-app.screen.height*0.5);
 
                     var xx = -camera.x + app.screen.width*0.5;
@@ -499,14 +608,19 @@
                     });
                 }    
                 app.ticker.add(function(delta){
-                    Text01.text = Math.ceil(maxTime-time/1000);    
-                    bg01.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.4;
-                    bg02.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.2;
-                    PIXI.updateList.forEach(function(el){
-                        el.update();
-                    });
+                    if(gamePage==="stage"&&gamePlay){
+                        Text01.text = Math.ceil(maxTime-time/1000);    
+                        bg01.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.8;
+                        bg02.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.7;
+                        bg03.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.6;
+                        bg04.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.5;
+                        bg05.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.4;
+                        PIXI.updateList.forEach(function(el){
+                            el.update();
+                        });
+                    }
                 });
-                app.start();
+                //app.start();
 
                 function reset(loader, resources){                    
                     time = 0;
@@ -518,9 +632,6 @@
                     });                    
                     updateView(); 
                 }
-
-                
-
             }
             
         }
