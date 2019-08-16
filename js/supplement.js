@@ -45,6 +45,9 @@ var stateMachine = function(){
     var state = '';
     var list = {};
     //this.stateMachine = null;
+    this.init = function(){
+        state = '';
+    }
     this.addState = function(name,option){
         option = Object.assign({
             stateMachine: null,

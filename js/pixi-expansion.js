@@ -63,7 +63,16 @@
                 this.position = this.body.position;
                 this.rotation = this.body.angle;
             }
+            var pos = this.getGlobalPosition();
+            this.setVisible(pos.x > -800 && pos.x < 800*2);
             return this;
+        },
+        setVisible:function(bool){
+            if(this.visibleFun){
+                this.visible = this.visibleFun(bool)?true:false;
+            }else{
+                this.visible = bool;
+            }
         },
         beforeUpdate:function(delta){
             //console.log(delta,this.animationList[0]);
@@ -382,7 +391,19 @@
         
 
         this.stateMachine = stateMachine01;
-
+        this.init = function(){
+            this.jumpLock = false;
+            this.controlLeft = false;
+            this.controlRight = false;
+            this.controlJump = false;
+            this.sensorLeftBool = false;
+            this.sensorRightBool = false;
+            this.sensorFloorBool = false;
+            this.setDirection("right"); 
+            this.stateMachine.init();
+            this.stateMachine.setState("base");
+            Body.setVelocity(this.body, {x:0,y:0});
+        }
         this.createBody = function(dimension,option){
             dimension = Object.assign({
                 head: 40,
@@ -451,7 +472,6 @@
                 if(that.sensorRightBool){
                     Body.translate( that.body, {x:-1,y:0});
                 }
-                //console.log('aaa')
             });
             Engine.collision.addCollisionEnd(bodiesBody,function(body){
                 if(that.sensorLeftBool){
@@ -460,7 +480,6 @@
                 if(that.sensorRightBool){
                     Body.translate( that.body, {x:-1,y:0});
                 }
-                //console.log('aaa')
             });
 
             option = Object.assign({

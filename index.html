@@ -79,15 +79,20 @@
 
             var render=Render.create({
                     engine:engine,
-                    //element:document.body,
+                    element:document.body,
                     options: {
                         width: sw,
                         height: sh
                     }
                });
             //var runner = Engine.run(engine);
-            var runner = Runner.create(engine);
-            Engine.update(engine, 1000/30);
+            var runner = Runner.create();
+            
+            //console.log(runner);
+
+            /*Runner.run(runner);
+            Runner.run(engine);*/
+            //Engine.update(engine, 1000/30);
             Render.run(render);
 
             var resetList = [];
@@ -130,7 +135,7 @@
                     y: 0,
                     radius: 50
                 },option);
-
+                var visible = true;
                 var item = new PIXI.Sprite(texture);
                 item.width = option.radius*2;
                 item.height = option.radius*2;
@@ -139,8 +144,9 @@
                     data:{
                         el:item,
                         collision:function(){
-                            if(item.visible){
-                                item.visible = false;
+                            if(visible){
+                                visible = false;
+                                item.setVisible(false);
                                 //console.log(item.position)
                                 emitter.ownerPos.set(item.position.x,item.position.y);
                                 emitter.emit = true; 
@@ -153,12 +159,16 @@
                     isStatic:true,
                     collisionGroup:1
                 });
+                item.visibleFun = function(bool){
+                    return visible&&bool;
+                }
                 item.translate(option.x,option.y);
                 resetList.push({
                     src:item,
                     trigger:function(){
-                        if(!item.visible){
-                            item.visible = true;
+                        if(!visible){
+                            visible = true;
+                            item.setVisible(true);
                         }
                     }
                 });
@@ -237,7 +247,7 @@
                     }
                 },
                 input:function(from, to){                                           
-                    changePage(from.id,to.id);
+                    changePage(pages,from.id,to.id);
                     currentlyState = pageStateMachine.getAllCurrentlyState();
                 },
                 nav:['start']
@@ -248,9 +258,8 @@
                     
                 },
                 input:function(from, to){                                                        
-                    changePage(from.id,to.id);
+                    changePage(pages,from.id,to.id);
                     currentlyState = pageStateMachine.getAllCurrentlyState();
-                    //console.log(currentlyState)
                 },
                 nav:['stage']
             });
@@ -260,7 +269,7 @@
                     
                 },
                 input:function(from, to){
-                    changePage(from.id,to.id);
+                    changePage(pages,from.id,to.id);
                     to.stateMachine.setState('start');
                     currentlyState = pageStateMachine.getAllCurrentlyState();
                 },
@@ -270,7 +279,7 @@
                 nav:['start']
             });
 
-            function changePage(from, to){
+            function changePage(pages, from, to){
                 //console.log(from,to)
                 if(from!==to){ 
                     if(pages[from]){
@@ -318,7 +327,6 @@
                     init(loader, resources);
                 }
             });
-            console.log(app)
             app.start();
             app.ticker.add(function(delta){
                 pageStateMachine.stateTrigger();
@@ -353,43 +361,43 @@
 
                 pageStateMachine_game.addState('start',{
                     trigger:function(){   
-                        //console.log('aaaa');
                     },
-                    input:function(){
+                    input:function(from, to){
+                        changePage(uiPages,from?from.id:"",to.id);
                         Runner.stop(runner);
                         currentlyState = pageStateMachine.getAllCurrentlyState();                    
                     },
                     nav:['run']
                 });
                 pageStateMachine_game.addState('run',{
-                    trigger:function(){   
-                        
+                    trigger:function(){ 
                     },
-                    input:function(){
-                        Runner.run(runner);
+                    input:function(from, to){
+                        changePage(uiPages,from?from.id:"",to.id);
+                        runner = Runner.run(engine);
                         currentlyState = pageStateMachine.getAllCurrentlyState();                    
                     },
                     nav:['win','lose']
                 });
                 pageStateMachine_game.addState('win',{
-                    trigger:function(){   
-                        
+                    trigger:function(){  
                     },
-                    input:function(){
+                    input:function(from, to){
+                        changePage(uiPages,from?from.id:"",to.id);
                         Runner.stop(runner);
                         currentlyState = pageStateMachine.getAllCurrentlyState();                    
                     },
-                    nav:['run']
+                    nav:['start']
                 });
                 pageStateMachine_game.addState('lose',{
-                    trigger:function(){   
-                        
+                    trigger:function(){ 
                     },
-                    input:function(){
+                    input:function(from, to){
+                        changePage(uiPages,from?from.id:"",to.id);
                         Runner.stop(runner);
                         currentlyState = pageStateMachine.getAllCurrentlyState();                    
                     },
-                    nav:['run']
+                    nav:['start']
                 });
 
 
@@ -437,9 +445,11 @@
                 game_stage.addChild(game_view);
                 var game_ui = new PIXI.Container();
                 game_stage.addChild(game_ui);                
-                var game_main_ui = new PIXI.Container();
-                game_stage.addChild(game_main_ui);
+                /*var game_main_ui = new PIXI.Container();
+                game_stage.addChild(game_main_ui);*/
 
+
+                /*遊戲圖層*/
                 var bg_layer = new PIXI.Container();
                 game_bgView.addChild(bg_layer);
 
@@ -458,8 +468,30 @@
                 var particles_layer = new PIXI.Container();
                 game_view.addChild(particles_layer);
 
+
+                /*開始遊戲圖層*/
                 var ui_layer = new PIXI.Container();
                 game_ui.addChild(ui_layer);
+                ui_layer.visible = false;
+
+                var start_layer = new PIXI.Container();
+                game_ui.addChild(start_layer);
+                start_layer.visible = false;
+
+                var win_layer = new PIXI.Container();
+                game_ui.addChild(win_layer);
+                win_layer.visible = false;
+
+                var lose_layer = new PIXI.Container();
+                game_ui.addChild(lose_layer);
+                lose_layer.visible = false;
+
+                var uiPages = {
+                    run:ui_layer,
+                    start:start_layer,
+                    win:win_layer,
+                    lose:lose_layer
+                }
 
                 /*文字*/
                 var text02 = new PIXI.Text('AABB', {
@@ -473,7 +505,7 @@
                 });
                 text02.anchor.set(0.5,0.5);
                 text02.position.set(app.screen.width*0.5, app.screen.height*0.5);
-                game_main_ui.addChild(text02);
+                start_layer.addChild(text02);
 
                 /*文字*/
                 var text01 = new PIXI.Text('', {
@@ -611,29 +643,41 @@
                     footDistance: 20*s
                 });
                 character01.addBodyfrom(world).translate(flag.x,flag.y).update();
+                character01.stateMachine.init();
+                character01.stateMachine.setState("base");
+
 
                 /*腳色控制*/
                 function addControl(key, fun){
-                    key.press.push(function(){                        
-                        //if(currentlyState==="stage.run"){
-                            fun(true);                    
-                        //}
+                    key.press.push(function(){                
+                        fun(true);
                     }); 
-                    key.release.push(function(){                        
-                        //if(currentlyState==="stage.run"){
-                            fun(false);
-                        //}
+                    key.release.push(function(){              
+                        fun(false);
                     });
                 }
 
                 addControl(control.left,function(bool){
-                    character01.controlLeft = bool;
+                    if(currentlyState==="stage.run"||currentlyState==="stage.start"){
+                        character01.controlLeft = bool;
+                    }
                 });
                 addControl(control.right,function(bool){
-                    character01.controlRight = bool;
+                    if(currentlyState==="stage.run"||currentlyState==="stage.start"){
+                        character01.controlRight = bool;
+                    }
                 });
                 addControl(control.spacebar,function(bool){
-                    character01.controlJump = bool;
+                    if(currentlyState==="stage.run"||currentlyState==="stage.start"){
+                        character01.controlJump = bool;
+                    }
+                });
+
+                control.spacebar.release.push(function(){
+                    if(currentlyState==="stage.lose"){
+                        reset(loader, resources);
+                        pageStateMachine_game.setState("start");
+                    }
                 });
 
 
@@ -651,7 +695,8 @@
                     data:{
                         el:null,
                         collision:function(){
-                            reset(loader, resources);
+                            //reset(loader, resources);
+                            pageStateMachine_game.setState("lose");
                         }
                     }
                 },false);
@@ -675,7 +720,8 @@
                     data:{
                         el:null,
                         collision:function(){
-                            reset(loader, resources);
+                            //reset(loader, resources);
+                            pageStateMachine_game.setState("lose");
                         }
                     }
                 },false);
@@ -702,15 +748,10 @@
                 text01.text = Math.ceil(maxTime-time);
                 Events.on(engine, 'beforeUpdate', function(event) {
                     delta = event.timestamp - timestamp;
-                    timestamp = event.timestamp;
-                    //console.log(1000/delta);
-
-
-                    //Body.setPosition(leftBox, {x:80+150,y:400+20});                    
+                    timestamp = event.timestamp;               
                     if(currentlyState==="stage.run"){
                         emitter01.update(delta*0.001); 
-                        //emitter02.update(delta*0.001); 
-                        //console.log(time);                      
+                        //emitter02.update(delta*0.001);                     
                         time+=delta*0.001;
                         var rate = Math.min(time/(maxTime),1);
                         cameraT.x=app.screen.width*0.5 + rate*(11300-app.screen.width);                    
@@ -751,12 +792,12 @@
                     if(currentlyState==="stage.run"){
                         text01.text = Math.ceil(maxTime-time);    
                         var xx = -(camera.x - app.screen.width*0.5);
-                        bg01.tilePosition.x = (xx*0.75)%1200;
-                        bg02.tilePosition.x = (xx*0.65)%1200;
-                        bg03.tilePosition.x = (xx*0.55)%1200;
-                        bg04.tilePosition.x = (xx*0.25)%1200;
-                        bg05.tilePosition.x = (xx*0.2)%1200;
-                        bg06.tilePosition.x = (xx*0.4)%1200;
+                        bg01.tilePosition.x = (xx*0.75);
+                        bg02.tilePosition.x = (xx*0.65);
+                        bg03.tilePosition.x = (xx*0.55);
+                        bg04.tilePosition.x = (xx*0.25);
+                        bg05.tilePosition.x = (xx*0.2);
+                        bg06.tilePosition.x = (xx*0.4);
                         PIXI.updateList.forEach(function(el){
                             el.update();
                         });
@@ -768,18 +809,38 @@
                         }
                     }
                 });
-                //console.log(app.ticker);
-                //app.start();
 
-                function reset(loader, resources){                    
+                function reset(loader, resources){
+                    reciprocalTime = 0;                    
                     time = 0;
                     text01.text = Math.ceil(maxTime-time);
                     emitter01.emit = false;
-                    character01.setPosition(flag.x,flag.y).update().setDirection("right"); 
+                    character01.init();
+                    character01.setPosition(flag.x,flag.y).update()
+                    
                     resetList.forEach(function(el){
                         el.trigger();
-                    });                    
+                    }); 
+                    var rate = Math.min(time/(maxTime),1);
+                    cameraT.x=app.screen.width*0.5 + rate*(11300-app.screen.width);                    
+                    PIXI.beforeUpdateList.forEach(function(el){
+                        el.beforeUpdate(delta);
+                    });
                     updateView(); 
+                    updateOutWall();
+                    text01.text = Math.ceil(maxTime-time);    
+                    var xx = -(camera.x - app.screen.width*0.5);
+                    bg01.tilePosition.x = (xx*0.75);
+                    bg02.tilePosition.x = (xx*0.65);
+                    bg03.tilePosition.x = (xx*0.55);
+                    bg04.tilePosition.x = (xx*0.25);
+                    bg05.tilePosition.x = (xx*0.2);
+                    bg06.tilePosition.x = (xx*0.4);
+                    PIXI.updateList.forEach(function(el){
+                        el.update();
+                    });
+                    text02.text = Math.max(Math.ceil(reciprocalMaxTime-reciprocalTime),0);
+
                 }
             }
             
