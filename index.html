@@ -79,7 +79,7 @@
 
             var render=Render.create({
                     engine:engine,
-                    element:document.body,
+                    //element:document.body,
                     options: {
                         width: sw,
                         height: sh
@@ -240,44 +240,9 @@
                 }
             });
 
-            pageStateMachine.addState('load',{
-                trigger:function(){
-                    if(app.loader.progress>=100){
-                        this.setState('start');
-                    }
-                },
-                input:function(from, to){                                           
-                    changePage(pages,from.id,to.id);
-                    currentlyState = pageStateMachine.getAllCurrentlyState();
-                },
-                nav:['start']
-            });
+            
 
-            pageStateMachine.addState('start',{
-                trigger:function(){   
-                    
-                },
-                input:function(from, to){                                                        
-                    changePage(pages,from.id,to.id);
-                    currentlyState = pageStateMachine.getAllCurrentlyState();
-                },
-                nav:['stage']
-            });
-
-            pageStateMachine.addState('stage',{
-                trigger:function(){   
-                    
-                },
-                input:function(from, to){
-                    changePage(pages,from.id,to.id);
-                    to.stateMachine.setState('start');
-                    currentlyState = pageStateMachine.getAllCurrentlyState();
-                },
-                output:function(){                    
-                    Runner.stop(runner);
-                },
-                nav:['start']
-            });
+            
 
             function changePage(pages, from, to){
                 //console.log(from,to)
@@ -315,6 +280,8 @@
             app.loader.add('house01', 'img/house01.png');
             app.loader.add('character01', 'img/character01.png');
             app.loader.add('gameStart', 'img/gameStart.png');
+            app.loader.add('lose01', 'img/lose01.png');
+            app.loader.add('lose02', 'img/lose02.png');
             app.loader.on("progress", function(loader){
                 //console.log(loader.progress,"loading"); 
             });            
@@ -328,9 +295,11 @@
                 }
             });
             app.start();
+            initLoad();
             app.ticker.add(function(delta){
                 pageStateMachine.stateTrigger();
             });
+
 
             function init(loader, resources){
                 /*遊戲開始畫面*/
@@ -341,9 +310,50 @@
             }
 
             function initLoad(){
+                var progress = 0;
+                pageStateMachine.addState('load',{
+                    trigger:function(){
+                        //console.log(app.loader.progress)
+                        if(app.loader.progress>=100&&Math.ceil(progress)>=100){
+                            this.setState('start');
+                        }
+                        progress+=(app.loader.progress-progress)*0.1;
+                        text01.text = 'loading '+Math.ceil(progress)+'%';
+                    },
+                    input:function(from, to){                                           
+                        changePage(pages,from.id,to.id);
+                        currentlyState = pageStateMachine.getAllCurrentlyState();
+                    },
+                    nav:['start']
+                });
+                /*文字*/
+                var text01 = new PIXI.Text('', {
+                    fontFamily: 'Arial',
+                    fontSize: '30px',
+                    fontWeight: 'bold',
+                    fill: '#FFFFFF',
+                    align: 'center',
+                    /*stroke: '#cc00ff',*/
+                    strokeThickness: 1
+                });
+                text01.anchor.set(0.5,0.5);
+                text01.position.set(app.screen.width*0.5, app.screen.height*0.5);
+                game_load.addChild(text01);
 
             }
             function initStart(loader, resources){
+                pageStateMachine.addState('start',{
+                    trigger:function(){   
+                        
+                    },
+                    input:function(from, to){                                                        
+                        changePage(pages,from.id,to.id);
+                        currentlyState = pageStateMachine.getAllCurrentlyState();
+                    },
+                    nav:['stage']
+                });
+
+                
                 /*圖層*/
                 var gameStartUI = new PIXI.Sprite(resources.gameStart.texture);
                 game_start.addChild(gameStartUI);
@@ -356,6 +366,21 @@
             }
 
             function initStage(loader, resources){
+
+                pageStateMachine.addState('stage',{
+                    trigger:function(){   
+                        
+                    },
+                    input:function(from, to){
+                        changePage(pages,from.id,to.id);
+                        to.stateMachine.setState('start');
+                        currentlyState = pageStateMachine.getAllCurrentlyState();
+                    },
+                    output:function(){                    
+                        Runner.stop(runner);
+                    },
+                    nav:['start']
+                });
 
                 var pageStateMachine_game = pageStateMachine.activeSubStateMachine('stage');
 
@@ -377,7 +402,7 @@
                         runner = Runner.run(engine);
                         currentlyState = pageStateMachine.getAllCurrentlyState();                    
                     },
-                    nav:['win','lose']
+                    nav:['win','lose01','lose02']
                 });
                 pageStateMachine_game.addState('win',{
                     trigger:function(){  
@@ -389,7 +414,17 @@
                     },
                     nav:['start']
                 });
-                pageStateMachine_game.addState('lose',{
+                pageStateMachine_game.addState('lose01',{
+                    trigger:function(){ 
+                    },
+                    input:function(from, to){
+                        changePage(uiPages,from?from.id:"",to.id);
+                        Runner.stop(runner);
+                        currentlyState = pageStateMachine.getAllCurrentlyState();                    
+                    },
+                    nav:['start']
+                });
+                pageStateMachine_game.addState('lose02',{
                     trigger:function(){ 
                     },
                     input:function(from, to){
@@ -482,26 +517,37 @@
                 game_ui.addChild(win_layer);
                 win_layer.visible = false;
 
-                var lose_layer = new PIXI.Container();
-                game_ui.addChild(lose_layer);
-                lose_layer.visible = false;
+                var lose01_layer = new PIXI.Container();
+                game_ui.addChild(lose01_layer);
+                lose01_layer.visible = false;
+
+                var lose02_layer = new PIXI.Container();
+                game_ui.addChild(lose02_layer);
+                lose02_layer.visible = false;
+
+                var lose01 = new PIXI.Sprite(resources.lose01.texture);
+                lose01_layer.addChild(lose01);
+
+                var lose02 = new PIXI.Sprite(resources.lose02.texture);
+                lose02_layer.addChild(lose02);
 
                 var uiPages = {
                     run:ui_layer,
                     start:start_layer,
                     win:win_layer,
-                    lose:lose_layer
+                    lose01:lose01_layer,
+                    lose02:lose02_layer
                 }
 
                 /*文字*/
-                var text02 = new PIXI.Text('AABB', {
+                var text02 = new PIXI.Text('', {
                     fontFamily: 'Arial',
                     fontSize: '60px',
                     fontWeight: 'bold',
                     fill: '#FFFFFF',
-                    align: 'right',
-                    stroke: '#cc00ff',
-                    strokeThickness: 1
+                    align: 'center',
+                    stroke: '#000000',
+                    strokeThickness: 10
                 });
                 text02.anchor.set(0.5,0.5);
                 text02.position.set(app.screen.width*0.5, app.screen.height*0.5);
@@ -513,12 +559,12 @@
                     fontSize: '22px',
                     fontWeight: 'bold',
                     fill: '#FFFFFF',
-                    align: 'right',
+                    align: 'center',
                     stroke: '#cc00ff',
                     strokeThickness: 1
                 });
                 text01.anchor.set(1,0);
-                text01.position.set(790, 10);
+                text01.position.set(app.screen.width-10, 10);
                 ui_layer.addChild(text01);
 
                 /*背景*/ 
@@ -674,7 +720,7 @@
                 });
 
                 control.spacebar.release.push(function(){
-                    if(currentlyState==="stage.lose"){
+                    if(currentlyState==="stage.lose01"||currentlyState==="stage.lose02"){
                         reset(loader, resources);
                         pageStateMachine_game.setState("start");
                     }
@@ -696,7 +742,7 @@
                         el:null,
                         collision:function(){
                             //reset(loader, resources);
-                            pageStateMachine_game.setState("lose");
+                            pageStateMachine_game.setState("lose01");
                         }
                     }
                 },false);
@@ -721,7 +767,7 @@
                         el:null,
                         collision:function(){
                             //reset(loader, resources);
-                            pageStateMachine_game.setState("lose");
+                            pageStateMachine_game.setState("lose02");
                         }
                     }
                 },false);
