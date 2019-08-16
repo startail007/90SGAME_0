@@ -114,3 +114,37 @@ var stateMachine = function(){
         }  
     }
 }
+var animation = function(name, duration, loop, fun){
+    this.name = name;
+    this.time = 0;
+    this.duration = duration;
+    this.loop = loop;
+    this.run = function(delta){
+        if(this.playing){
+            this.time+=delta;
+            this.update();
+        }
+    };
+    this.update = function(){
+        if(this.loop){
+            this.time%=this.duration;
+        }else{
+            if(this.time>this.duration){
+                this.time = this.duration;
+                this.playing = false;
+            }
+        }
+        //console.log(delta,this.time)
+        fun(this.time/this.duration,this);
+    };
+    this.playing = false;
+    this.play = function(){
+        this.playing = true;
+        return this;
+    }
+    this.setTime = function(value){
+        this.time = value;
+        this.update();
+        return this;
+    }
+}

@@ -1,6 +1,6 @@
 (function(){
-    PIXI.updateList = [];
-    PIXI.beforeUpdateList = [];
+    PIXI.customUpdateList = [];
+    PIXI.customBeforeUpdateList = [];
     /*PIXI.DisplayObject.prototype = {
         aaa: {}
     };*/
@@ -25,13 +25,17 @@
         createBody:function(type, option, bound){
             option = option||{};
             if(type==="rect"){
-                bound = bound||{};
-                bound.left = bound.left||0;
-                bound.right = bound.right||0;
-                bound.top = bound.top||0;
-                bound.bottom = bound.bottom||0;
-                this.body=Bodies.rectangle(0,0,this.width-bound.left-bound.right,this.height-bound.top-bound.bottom,option,false); 
-                this.pivot.set((bound.left- bound.right)*0.5, (bound.top - bound.bottom)*0.5);     
+                if(bound){
+                    bound = bound||{};
+                    bound.left = bound.left||0;
+                    bound.right = bound.right||0;
+                    bound.top = bound.top||0;
+                    bound.bottom = bound.bottom||0;
+                    this.body=Bodies.rectangle(0,0,this.width-bound.left-bound.right,this.height-bound.top-bound.bottom,option,false); 
+                    this.pivot.set((bound.left- bound.right)*0.5, (bound.top - bound.bottom)*0.5);
+                }else{
+                    this.body=Bodies.rectangle(0,0,this.width,this.height,option,false);
+                }     
             }else if(type==="circle"){
                 this.body=Bodies.circle(0,0,this.width*0.5,option);
                 //this.pivot.set(this.width*0.5, this.height*0.5);
@@ -41,24 +45,25 @@
             return this;
         },
         addBodyfrom:function(target){
-            PIXI.updateList.push(this);
+            PIXI.customUpdateList.push(this);
             World.add(target,this.body);
             return this;
         },
         removeBodyfrom:function(target){
             var that = this;
-            var index = PIXI.updateList.findIndex(function(el){
+            var index = PIXI.customUpdateList.findIndex(function(el){
                 return el===that
             });
             if(index!==-1){
-                PIXI.updateList.splice(index, 1);
+                PIXI.customUpdateList.splice(index, 1);
                 World.remove(target,this.body); 
                 this.body = undefined;
                 delete this.body;
             }
             return this;
         },
-        update:function(){
+        customUpdate:function(){
+            //console.log('aaa')
             if(this.body){  
                 this.position = this.body.position;
                 this.rotation = this.body.angle;
@@ -74,7 +79,7 @@
                 this.visible = bool;
             }
         },
-        beforeUpdate:function(delta){
+        customBeforeUpdate:function(delta){
             //console.log(delta,this.animationList[0]);
             if(this.animationList){
                 this.animationList.forEach(function(el){                
@@ -115,11 +120,11 @@
             var temp = new animation(name, duration, loop, function(rate, data){
                 fun(that, rate, data);
             });
-            var index = PIXI.beforeUpdateList.findIndex(function(el){
+            var index = PIXI.customBeforeUpdateList.findIndex(function(el){
                 return that===el;
             });
             if(index===-1){
-                PIXI.beforeUpdateList.push(this);
+                PIXI.customBeforeUpdateList.push(this);
             }
             this.animationList.push(temp);
             return temp;
@@ -141,40 +146,6 @@
             }
         }
     });
-    var animation = function(name, duration, loop, fun){
-        this.name = name;
-        this.time = 0;
-        this.duration = duration;
-        this.loop = loop;
-        this.run = function(delta){
-            if(this.playing){
-                this.time+=delta;
-                this.update();
-            }
-        };
-        this.update = function(){
-            if(this.loop){
-                this.time%=this.duration;
-            }else{
-                if(this.time>this.duration){
-                    this.time = this.duration;
-                    this.playing = false;
-                }
-            }
-            //console.log(delta,this.time)
-            fun(this.time/this.duration,this);
-        };
-        this.playing = false;
-        this.play = function(){
-            this.playing = true;
-            return this;
-        }
-        this.setTime = function(value){
-            this.time = value;
-            this.update();
-            return this;
-        }
-    }
     var AnimatedSprite_gotoAndPlay = PIXI.AnimatedSprite.prototype.gotoAndPlay;
     var AnimatedSprite_gotoAndStop = PIXI.AnimatedSprite.prototype.gotoAndStop;
     var AnimatedSprite_render = PIXI.AnimatedSprite.prototype._render;
@@ -187,7 +158,7 @@
         gotoAndPlay:function(t){
             if(!this.frameTags||typeof(t)==='number'){
                 this.currentlyTag = t;
-                this.animationSpeed = 1;
+                //this.animationSpeed = 1;
                 AnimatedSprite_gotoAndPlay.call(this,t);
                 return;
             }
@@ -201,7 +172,7 @@
         gotoAndStop:function(t){
             if(!this.frameTags||typeof(t)==='number'){
                 this.currentlyTag = t;
-                this.animationSpeed = 1;
+                //this.animationSpeed = 1;
                 AnimatedSprite_gotoAndStop.call(this,t);
                 return;
             }
@@ -213,19 +184,21 @@
             }
         },
         changeFrame:function(){
-            var tag = this.frameTags[this.currentlyTag];
-            if(tag){
-                if(tag.loop){
-                    var f = tag.start + (this.currentFrame-tag.start)%(tag.end-tag.start);               
-                    if(this.currentFrame!==f){
-                        AnimatedSprite_gotoAndPlay.call(this,f);
+            if(this.frameTags){
+                var tag = this.frameTags[this.currentlyTag];
+                if(tag){
+                    if(tag.loop){
+                        var f = tag.start + (this.currentFrame-tag.start)%(tag.end-tag.start);               
+                        if(this.currentFrame!==f){
+                            AnimatedSprite_gotoAndPlay.call(this,f);
+                        }
+                    }else{
+                        if(this.currentFrame>=tag.end){
+                            AnimatedSprite_gotoAndStop.call(this,tag.end);
+                        }
                     }
-                }else{
-                    if(this.currentFrame>=tag.end){
-                        AnimatedSprite_gotoAndStop.call(this,tag.end);
-                    }
-                }
-            }        
+                } 
+            }                   
         },
         _render:function(t){
             AnimatedSprite_render.call(this,t);
@@ -236,7 +209,7 @@
 
     PIXI.componentCharacter = function(data) {
         this.__super(); 
-        PIXI.beforeUpdateList.push(this);
+        PIXI.customBeforeUpdateList.push(this);
         var player = new PIXI.AnimatedSprite(data);
         player.scale.set(1);
         player.initTags();
@@ -396,13 +369,15 @@
             this.controlLeft = false;
             this.controlRight = false;
             this.controlJump = false;
-            this.sensorLeftBool = false;
+            /*this.sensorLeftBool = false;
             this.sensorRightBool = false;
-            this.sensorFloorBool = false;
+            this.sensorFloorBool = false;*/
             this.setDirection("right"); 
             this.stateMachine.init();
             this.stateMachine.setState("base");
             Body.setVelocity(this.body, {x:0,y:0});
+            /*var temp = Matter.Detector.collisions(this.sensorFloor,engine);
+            console.log(temp,this.body.parts,engine,this.sensorFloor.parts);*/
         }
         this.createBody = function(dimension,option){
             dimension = Object.assign({
@@ -426,7 +401,8 @@
             var sensorLeft = Bodies.rectangle(0-dimension.bodyWidth*0.5+dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
             var sensorRight = Bodies.rectangle(0+dimension.bodyWidth*0.5-dimension.bodyWidth*0.1,(bb+tt)*0.5,dimension.bodyWidth*0.5,bb-tt-dimension.footRadius,{isSensor:true,density:0});                
             var sensorFloor = Bodies.rectangle(0,-dimension.footRadius+dimension.footRadius*1,dimension.footDistance+dimension.footRadius*2*0.5,dimension.footRadius,{isSensor:true,density:0});
-
+            this.sensorFloor = sensorFloor;
+            //console.log(sensorFloor);
             var sensorCollision = Bodies.circle(0,-dimension.bodyHeight*0.5,dimension.bodyWidth*0.7,{collisionGroup:1,isSensor:true,density:0});
 
             var that = this;
@@ -499,8 +475,8 @@
             this.body=bodiesMain;
             return this;
         }
-        this.beforeUpdate = function(delta){
-            this.constructor.prototype.beforeUpdate.call(this,delta);    
+        this.customBeforeUpdate = function(delta){
+            this.constructor.prototype.customBeforeUpdate.call(this,delta);    
             this.stateMachine.stateTrigger();
         }
         this.setDirection = function(direction){
