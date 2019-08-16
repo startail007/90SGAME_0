@@ -27,10 +27,7 @@
             Runner = Matter.Runner; 
 
         window.onload = function(){
-
-            var gamePlay = false;
-            var gamePage = "";//start//stage
-
+            var currentlyState = "";
             var sw = Common.clamp(window.innerWidth,800,800);
             var sh = Common.clamp(window.innerHeight,600,600);
             var app = new PIXI.Application({
@@ -42,16 +39,20 @@
             document.body.appendChild(app.view);
 
              
-
-            var game_stage = new PIXI.Container();
-            app.stage.addChild(game_stage);
-            game_stage.visible = false;
+            var game_load = new PIXI.Container();
+            app.stage.addChild(game_load);
+            game_load.visible = false;
 
             var game_start = new PIXI.Container();
             app.stage.addChild(game_start);
             game_start.visible = false; 
+            
+            var game_stage = new PIXI.Container();
+            app.stage.addChild(game_stage);
+            game_stage.visible = false;
 
             var pages = {
+                load:game_load,
                 start:game_start,
                 stage:game_stage,
             }
@@ -78,7 +79,7 @@
 
             var render=Render.create({
                     engine:engine,
-                    element:document.body,
+                    //element:document.body,
                     options: {
                         width: sw,
                         height: sh
@@ -86,6 +87,7 @@
                });
             //var runner = Engine.run(engine);
             var runner = Runner.create(engine);
+            Engine.update(engine, 1000/30);
             Render.run(render);
 
             var resetList = [];
@@ -107,6 +109,7 @@
                 );
                 item.tileScale.x = option.textureScale;
                 item.tileScale.y = option.textureScale;
+                item.tilePosition.x = Math.random()*texture.orig.width;
                 item.anchor.set(0.5);
                 item.createBody("rect",{
                     isStatic:true,
@@ -118,42 +121,6 @@
                 var ty = (option.bound?option.bound.top:0);
                 item.translate(option.x + item.pivot.x,option.y + item.pivot.y);
                 item.rotate(option.angle, {x:option.x,y:option.y});
-                return item;
-            }
-
-            function createRectWall(texture, option){
-                option = Object.assign({
-                    x: 0,
-                    y: 0,
-                    width: 50,
-                    height: 50,
-                    bound: undefined,
-                    textureScale:0.5,
-                    angle:0
-                },option);
-                var item0 = new PIXI.TilingSprite(
-                    texture,
-                    option.width,
-                    option.height,
-                );
-                item0.tileScale.x = option.textureScale;
-                item0.tileScale.y = option.textureScale;
-                item0.anchor.set(0.5);
-
-
-                var item = new PIXI.Container();
-                item.addChild(item0);
-                item.createBody("rect",{
-                    isStatic:true,
-                    friction: 0.3,
-                    frictionStatic:0.9,
-                    restitution:0,
-                },option.bound);
-                var tx = (option.bound?option.bound.left:0);
-                var ty = (option.bound?option.bound.top:0);
-                item.translate(option.x + item.pivot.x,option.y + item.pivot.y);
-                item.rotate(option.angle, {x:option.x,y:option.y});
-
                 return item;
             }
 
@@ -213,7 +180,7 @@
                 var len = Math.sqrt(xx*xx + yy*yy);
                 var duration = len*4000/240;
                 var time = Math.random()*duration;
-                var animation = item.addAnimation("move",duration,true,function(rate,data,src){
+                var animation = item.addAnimation("move",duration,true,function(src,rate,data){
                     var temp = EasingFunctions.easeInOutCubic(1-Math.abs(rate-0.5)*2);
                     var x = itemData.start.x + xx*temp;
                     var y = itemData.start.y + yy*temp;
@@ -252,9 +219,78 @@
             }
 
 
+
+            var pageStateMachine = new stateMachine();
+            pageStateMachine.addState('',{
+                trigger:function(){                    
+                    this.setState('load');
+                },
+                input:function(){
+                    currentlyState = pageStateMachine.getAllCurrentlyState();
+                }
+            });
+
+            pageStateMachine.addState('load',{
+                trigger:function(){
+                    if(app.loader.progress>=100){
+                        this.setState('start');
+                    }
+                },
+                input:function(from, to){                                           
+                    changePage(from.id,to.id);
+                    currentlyState = pageStateMachine.getAllCurrentlyState();
+                },
+                nav:['start']
+            });
+
+            pageStateMachine.addState('start',{
+                trigger:function(){   
+                    
+                },
+                input:function(from, to){                                                        
+                    changePage(from.id,to.id);
+                    currentlyState = pageStateMachine.getAllCurrentlyState();
+                    //console.log(currentlyState)
+                },
+                nav:['stage']
+            });
+
+            pageStateMachine.addState('stage',{
+                trigger:function(){   
+                    
+                },
+                input:function(from, to){
+                    changePage(from.id,to.id);
+                    to.stateMachine.setState('start');
+                    currentlyState = pageStateMachine.getAllCurrentlyState();
+                },
+                output:function(){                    
+                    Runner.stop(runner);
+                },
+                nav:['start']
+            });
+
+            function changePage(from, to){
+                //console.log(from,to)
+                if(from!==to){ 
+                    if(pages[from]){
+                        pages[from].visible = false;
+                    }
+                    if(pages[to]){
+                        pages[to].visible = true;
+                    }
+                }
+            }
+
+
+            /*遊戲開始畫面*/
+            initLoad();  
+
+
             /*資源載入*/
             var loaded = false;
             app.loader.add('emitter01', 'js/emitter01.json');
+            app.loader.add('emitter02', 'js/emitter02.json');
             app.loader.add('map', 'js/map.json');
             app.loader.add('circle01', 'img/circle01.png');
             app.loader.add('player', 'img/player.json');
@@ -263,19 +299,29 @@
             app.loader.add('bg03', 'img/bg03.png');
             app.loader.add('bg04', 'img/bg04.png');
             app.loader.add('bg05', 'img/bg05.png');
+            app.loader.add('bg06', 'img/bg06.png');
             app.loader.add('floor02', 'img/floor02.png');
             app.loader.add('floor01', 'img/floor01.png');
+            app.loader.add('wall01', 'img/wall01.png');
+            app.loader.add('house01', 'img/house01.png');
+            app.loader.add('character01', 'img/character01.png');
             app.loader.add('gameStart', 'img/gameStart.png');
             app.loader.on("progress", function(loader){
-                console.log(loader.progress,"loading"); 
+                //console.log(loader.progress,"loading"); 
             });            
             app.loader.load(function(loader, resources){
                 //texture = resources.flowerTop.texture;
                 if(!loaded){
                     loaded = true;
-                    pageChange("start");
+                    //pageChange("start");
+                    //pageChange("stage");
                     init(loader, resources);
                 }
+            });
+            console.log(app)
+            app.start();
+            app.ticker.add(function(delta){
+                pageStateMachine.stateTrigger();
             });
 
             function init(loader, resources){
@@ -285,39 +331,68 @@
                 /*遊戲場景相關*/  
                 initStage(loader, resources);
             }
-            function pageChange(page){
-                if(gamePage!==page){                    
-                    if(gamePage==="stage"){
-                        Runner.stop(runner);
-                        gamePlay = false;
-                    }
-                    if(pages[gamePage]){
-                        pages[gamePage].visible = false;
-                    }
-                    gamePage = page;
-                    if(gamePage==="stage"){
-                        Runner.run(runner);
-                        gamePlay = true;
-                    }
-                    if(pages[gamePage]){
-                        pages[gamePage].visible = true;
-                    }
-                }
-            }
 
+            function initLoad(){
+
+            }
             function initStart(loader, resources){
                 /*圖層*/
                 var gameStartUI = new PIXI.Sprite(resources.gameStart.texture);
                 game_start.addChild(gameStartUI);
 
                 control.spacebar.release.push(function(){
-                    if(gamePage==="start"){
-                        pageChange("stage");
+                    if(currentlyState==="start"){
+                        pageStateMachine.setState('stage');
                     }
                 });
             }
 
             function initStage(loader, resources){
+
+                var pageStateMachine_game = pageStateMachine.activeSubStateMachine('stage');
+
+                pageStateMachine_game.addState('start',{
+                    trigger:function(){   
+                        //console.log('aaaa');
+                    },
+                    input:function(){
+                        Runner.stop(runner);
+                        currentlyState = pageStateMachine.getAllCurrentlyState();                    
+                    },
+                    nav:['run']
+                });
+                pageStateMachine_game.addState('run',{
+                    trigger:function(){   
+                        
+                    },
+                    input:function(){
+                        Runner.run(runner);
+                        currentlyState = pageStateMachine.getAllCurrentlyState();                    
+                    },
+                    nav:['win','lose']
+                });
+                pageStateMachine_game.addState('win',{
+                    trigger:function(){   
+                        
+                    },
+                    input:function(){
+                        Runner.stop(runner);
+                        currentlyState = pageStateMachine.getAllCurrentlyState();                    
+                    },
+                    nav:['run']
+                });
+                pageStateMachine_game.addState('lose',{
+                    trigger:function(){   
+                        
+                    },
+                    input:function(){
+                        Runner.stop(runner);
+                        currentlyState = pageStateMachine.getAllCurrentlyState();                    
+                    },
+                    nav:['run']
+                });
+
+
                 /*碰撞偵測*/
                 Events.on(engine, 'collisionStart', function(event) {
                     var pairs = event.pairs;
@@ -361,7 +436,9 @@
                 var game_view = new PIXI.Container();
                 game_stage.addChild(game_view);
                 var game_ui = new PIXI.Container();
-                game_stage.addChild(game_ui);
+                game_stage.addChild(game_ui);                
+                var game_main_ui = new PIXI.Container();
+                game_stage.addChild(game_main_ui);
 
                 var bg_layer = new PIXI.Container();
                 game_bgView.addChild(bg_layer);
@@ -369,11 +446,14 @@
                 var floor_layer = new PIXI.Container();
                 game_view.addChild(floor_layer);
 
-                var prop_layer = new PIXI.Container();
-                game_view.addChild(prop_layer);
+                var img_layer = new PIXI.Container();
+                game_view.addChild(img_layer);
 
                 var container_layer = new PIXI.Container();
                 game_view.addChild(container_layer);
+
+                var prop_layer = new PIXI.Container();
+                game_view.addChild(prop_layer);
 
                 var particles_layer = new PIXI.Container();
                 game_view.addChild(particles_layer);
@@ -382,19 +462,36 @@
                 game_ui.addChild(ui_layer);
 
                 /*文字*/
-                var Text01 = new PIXI.Text('', {
+                var text02 = new PIXI.Text('AABB', {
+                    fontFamily: 'Arial',
+                    fontSize: '60px',
+                    fontWeight: 'bold',
+                    fill: '#FFFFFF',
+                    align: 'right',
+                    stroke: '#cc00ff',
+                    strokeThickness: 1
+                });
+                text02.anchor.set(0.5,0.5);
+                text02.position.set(app.screen.width*0.5, app.screen.height*0.5);
+                game_main_ui.addChild(text02);
+
+                /*文字*/
+                var text01 = new PIXI.Text('', {
                     fontFamily: 'Arial',
                     fontSize: '22px',
                     fontWeight: 'bold',
                     fill: '#FFFFFF',
-                    align: 'left',
+                    align: 'right',
                     stroke: '#cc00ff',
                     strokeThickness: 1
                 });
-                Text01.position.set(10, 10);
-                ui_layer.addChild(Text01);
+                text01.anchor.set(1,0);
+                text01.position.set(790, 10);
+                ui_layer.addChild(text01);
 
-                /*背景*/                
+                /*背景*/ 
+                var bg06 = new PIXI.TilingSprite(resources.bg06.texture, app.screen.width, app.screen.height);                
+                bg_layer.addChild(bg06);            
                 var bg05 = new PIXI.TilingSprite(resources.bg05.texture, app.screen.width, app.screen.height);                
                 bg_layer.addChild(bg05);
                 var bg04 = new PIXI.TilingSprite(resources.bg04.texture, app.screen.width, app.screen.height);                
@@ -407,12 +504,18 @@
                 bg_layer.addChild(bg01);
 
                 /*粒子系統*/
-                var emitter = new PIXI.particles.Emitter(
+                var emitter01 = new PIXI.particles.Emitter(
                     particles_layer,
                     [resources.circle01.texture],
                     resources.emitter01.data
                 );
-                emitter.emit = false; 
+                emitter01.emit = false; 
+
+                /*var emitter02 = new PIXI.particles.Emitter(
+                    particles_layer,
+                    [resources.circle01.texture],
+                    resources.emitter02.data
+                );*/
 
                 /*場景產生*/
                 var map = resources.map.data;
@@ -420,6 +523,22 @@
                 var floors = map.floor;
                 var props = map.prop;
                 var moveFloor = map.moveFloor;
+                var walls = map.wall;
+                var img = map.img;
+
+                for(var key in walls){
+                    var itemData = walls[key];
+                    var item = createRect(resources.wall01.texture,{
+                        x:itemData.x,
+                        y:itemData.y,
+                        width:itemData.width,
+                        height:itemData.height,
+                        angle:itemData.angle,
+                        textureScale:1
+                    });
+                    floor_layer.addChild(item);
+                    item.addBodyfrom(world).update();
+                }
                 for(var key in floors){
                     var itemData = floors[key];
                     var item = createRect(resources.floor02.texture,{
@@ -441,7 +560,7 @@
                         y:itemData.y,
                         radius:itemData.width*0.5,
                         textureScale:1
-                    },emitter);
+                    },emitter01);
                     prop_layer.addChild(item);
                     item.addBodyfrom(world).update();
                 }
@@ -452,6 +571,20 @@
                     item.addBodyfrom(world).update();
                     item.animationPlay("move");
                 }
+
+                for(var key in img){
+                    var itemData = img[key];
+                    if(resources[itemData.name]){
+                        var item = new PIXI.Sprite(resources[itemData.name].texture);
+                        item.width = itemData.width;
+                        item.height = itemData.height;
+                        item.anchor.set(0.5);
+                        item.position.set(itemData.x,itemData.y);
+                        img_layer.addChild(item);
+                    }                    
+                }
+
+                //img_layer
                 /*var floor_003 = createRect(resources.floor01.texture,{
                     x:25,
                     y:300,
@@ -481,15 +614,15 @@
 
                 /*腳色控制*/
                 function addControl(key, fun){
-                    key.press.push(function(){
-                        if(gamePage==="stage"&&gamePlay){
+                    key.press.push(function(){                        
+                        //if(currentlyState==="stage.run"){
                             fun(true);                    
-                        }
+                        //}
                     }); 
-                    key.release.push(function(){
-                        if(gamePage==="stage"&&gamePlay){
+                    key.release.push(function(){                        
+                        //if(currentlyState==="stage.run"){
                             fun(false);
-                        }
+                        //}
                     });
                 }
 
@@ -554,7 +687,7 @@
                 World.add(world,bottomBox);
 
                 function updateOutWall(){                    
-                    Body.setPosition(leftBox, {x:camera.x-app.screen.width*0.5-20-40,y:app.screen.height*0.5});
+                    Body.setPosition(leftBox, {x:camera.x-app.screen.width*0.5-20-140,y:app.screen.height*0.5});
                     Body.setPosition(rightBox, {x:camera.x+app.screen.width*0.5+20+10,y:app.screen.height*0.5});
                     Body.setPosition(bottomBox, {x:camera.x,y:camera.y+app.screen.height*0.5+200});
                 }
@@ -564,24 +697,29 @@
                 var maxTime = 90;
                 var timestamp = engine.timing.timestamp;
                 var time = 0;
-                Text01.text = Math.ceil(maxTime-time/1000);
+                var reciprocalMaxTime = 3;
+                var reciprocalTime = 0;
+                text01.text = Math.ceil(maxTime-time);
                 Events.on(engine, 'beforeUpdate', function(event) {
                     delta = event.timestamp - timestamp;
                     timestamp = event.timestamp;
+                    //console.log(1000/delta);
 
 
-                    //Body.setPosition(leftBox, {x:80+150,y:400+20});
-                    if(gamePage==="stage"&&gamePlay){
-                        emitter.update(delta*0.001);                       
-                        time+=delta;
-                        var rate = Math.min(time/(maxTime*1000),1);
+                    //Body.setPosition(leftBox, {x:80+150,y:400+20});                    
+                    if(currentlyState==="stage.run"){
+                        emitter01.update(delta*0.001); 
+                        //emitter02.update(delta*0.001); 
+                        //console.log(time);                      
+                        time+=delta*0.001;
+                        var rate = Math.min(time/(maxTime),1);
                         cameraT.x=app.screen.width*0.5 + rate*(11300-app.screen.width);                    
                         PIXI.beforeUpdateList.forEach(function(el){
                             el.beforeUpdate(delta);
                         });
                         updateView(); 
                         updateOutWall();
-                    }                    
+                    }                   
                 });
 
                 /*Events.on(engine, 'afterUpdate', function(event) {
@@ -607,25 +745,36 @@
                         }
                     });
                 }    
-                app.ticker.add(function(delta){
-                    if(gamePage==="stage"&&gamePlay){
-                        Text01.text = Math.ceil(maxTime-time/1000);    
-                        bg01.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.8;
-                        bg02.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.7;
-                        bg03.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.6;
-                        bg04.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.5;
-                        bg05.tilePosition.x = -(camera.x - app.screen.width*0.5)*0.4;
+                //app.ticker.maxFPS = 30;
+                var timestamp00 = engine.timing.timestamp;
+                var ticker = app.ticker.add(function(delta){
+                    if(currentlyState==="stage.run"){
+                        text01.text = Math.ceil(maxTime-time);    
+                        var xx = -(camera.x - app.screen.width*0.5);
+                        bg01.tilePosition.x = (xx*0.75)%1200;
+                        bg02.tilePosition.x = (xx*0.65)%1200;
+                        bg03.tilePosition.x = (xx*0.55)%1200;
+                        bg04.tilePosition.x = (xx*0.25)%1200;
+                        bg05.tilePosition.x = (xx*0.2)%1200;
+                        bg06.tilePosition.x = (xx*0.4)%1200;
                         PIXI.updateList.forEach(function(el){
                             el.update();
                         });
+                    }else if(currentlyState==="stage.start"){     
+                        reciprocalTime+=ticker.elapsedMS*0.001;                   
+                        text02.text = Math.max(Math.ceil(reciprocalMaxTime-reciprocalTime),0);
+                        if(reciprocalTime>=reciprocalMaxTime){
+                            pageStateMachine_game.setState("run");
+                        }
                     }
                 });
+                //console.log(app.ticker);
                 //app.start();
 
                 function reset(loader, resources){                    
                     time = 0;
-                    Text01.text = Math.ceil(maxTime-time/1000);
-                    emitter.emit = false;
+                    text01.text = Math.ceil(maxTime-time);
+                    emitter01.emit = false;
                     character01.setPosition(flag.x,flag.y).update().setDirection("right"); 
                     resetList.forEach(function(el){
                         el.trigger();

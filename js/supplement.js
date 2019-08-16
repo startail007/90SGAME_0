@@ -40,3 +40,74 @@ function extend(child, supertype) {
     child.prototype.__proto__ = supertype.prototype;
     child.prototype.__super = supertype;
 }
+
+var stateMachine = function(){
+    var state = '';
+    var list = {};
+    //this.stateMachine = null;
+    this.addState = function(name,option){
+        option = Object.assign({
+            stateMachine: null,
+            id:name
+        },option);
+        list[name] = option;
+    }
+    this.getCurrentlyState = function(){
+        return state;
+    }
+    this.getAllCurrentlyState = function(){
+        var stateMachine = list[state];        
+        var ss = state;
+        var nextStateMachine = stateMachine.stateMachine;
+        while (nextStateMachine) {
+            var nextCurrentlyState = stateMachine&&nextStateMachine.getCurrentlyState();
+            if(nextCurrentlyState){
+                ss += "." + nextCurrentlyState;
+            }
+            nextStateMachine = nextStateMachine.getState(nextCurrentlyState).stateMachine;
+        }
+        return ss;
+    }
+    this.getState = function(name){
+        return list[name];
+    }
+    this.setState = function(name){
+        if(list[name]){       
+            var bool = false;                      
+            var temp0 = (list[state]&&list[state].nav)?list[state].nav.indexOf(name)!==-1:true;
+            if(temp0){             
+                var temp1 = (list[state]&&list[state].to)?list[state].to.call(this,name):true;
+                if(temp1){
+                    var temp2 = (list[name]&&list[name].enter)?list[name].enter.call(this,state):true;
+                    if(temp2){
+                        if(list[state]&&list[state].output){
+                            list[state].output.call(this,list[state],list[name]);
+                        }            
+                        bool = true;
+                    }
+                }
+            }
+            if(bool||state===name){ 
+                var oldState = state;  
+                state = name;       
+                if(list[name]&&list[name].input){
+                    list[name].input.call(this,list[oldState],list[name]);
+                }          
+            }
+        }
+    }
+    this.stateTrigger = function(){  
+        if(list[state]){                
+            list[state].trigger.call(this,list[state]);
+            if(list[state].stateMachine){
+                list[state].stateMachine.stateTrigger();  
+            }
+        }
+    }
+    this.activeSubStateMachine = function(name){
+        if(list[name]&&list[name].stateMachine===null){
+            list[name].stateMachine = new stateMachine();
+            return list[name].stateMachine;
+        }  
+    }
+}
